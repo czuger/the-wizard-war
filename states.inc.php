@@ -65,8 +65,8 @@ $machinestates = array(
 
     10 => array(
     		"name" => "GlobalExpense",
-    		"description" => clienttranslate('Players must select expenses for global donation'),
-    		"descriptionmyturn" => clienttranslate('Players must select expenses for global donation'),
+    		"description" => clienttranslate('Players must select expenses for city selling promotion'),
+    		"descriptionmyturn" => clienttranslate('Players must select expenses for city selling promotion'),
             "type" => "multipleactiveplayer",
             "args" => "argGlobalExpense",
             "action" => "stGlobalExpense",
@@ -76,11 +76,11 @@ $machinestates = array(
 
     30 => array(
         "name" => "ItemsProduction",
-        "description" => clienttranslate('${actplayer} must play a card or pass'),
-        "descriptionmyturn" => clienttranslate('${you} must play a card or pass'),
+        "description" => clienttranslate('${actplayer} must choose item(s) to produce'),
+        "descriptionmyturn" => clienttranslate('${you} must choose item(s) to produce'),
         "type" => "activeplayer",
-        "possibleactions" => array( "validateProduction" ),
-        "transitions" => array( "validateProduction" => 30 )
+        "possibleactions" => array( "CitySelling" ),
+        "transitions" => array( "CitySelling" => 70 )
     ),       
 
     70 => array(
@@ -88,8 +88,8 @@ $machinestates = array(
         "description" => clienttranslate('${actplayer} must play a card or pass'),
         "descriptionmyturn" => clienttranslate('${you} must play a card or pass'),
         "type" => "activeplayer",
-        "possibleactions" => array( "playCard", "pass" ),
-        "transitions" => array( "playCard" => 2, "pass" => 2 )
+        "possibleactions" => array( "GlobalExpense" ),
+        "transitions" => array( "GlobalExpense" => 10 )
     ),    
     
 /*

@@ -34,6 +34,7 @@
 -- ALTER TABLE 'player' ADD 'player_my_custom_field' INT UNSIGNED NOT NULL DEFAULT '0';
 
 ALTER TABLE player ADD player_money SMALLINT NOT NULL DEFAULT 50;
+ALTER TABLE player ADD town_criers_expense SMALLINT NOT NULL DEFAULT 0;
 ALTER TABLE player ADD player_laboratories SMALLINT NOT NULL DEFAULT 1;
 
 CREATE TABLE IF NOT EXISTS fanatics (

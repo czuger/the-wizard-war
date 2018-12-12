@@ -199,6 +199,9 @@ class GuerreMagiciens extends Table
         self::checkAction( 'ItemsProduction' ); 
         
         $player_id = self::getActivePlayerId();
+
+        $sql = "UPDATE player SET town_criers_expense=".$total_expense.", player_money=player_money-".$total_expense." WHERE player_id=".$player_id;
+        self::DbQuery( $sql );
         
         // Add your game logic there
         $this->gamestate->nextState( 'ItemsProduction' );
@@ -208,7 +211,6 @@ class GuerreMagiciens extends Table
             'player_id' => $player_id,
             'player_name' => self::getActivePlayerName()
         ) );
-        
     }
 
     /*
