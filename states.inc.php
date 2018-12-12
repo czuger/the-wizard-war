@@ -64,12 +64,12 @@ $machinestates = array(
     // Note: ID=2 => your first state
 
     10 => array(
-    		"name" => "TownCrierExpense",
-    		"description" => clienttranslate('Players must select expenses for town crier'),
-    		"descriptionmyturn" => clienttranslate('Players must select expenses town crier'),
+    		"name" => "TownCriersExpense",
+    		"description" => clienttranslate('Players must select expenses for town criers'),
+    		"descriptionmyturn" => clienttranslate('Players must select expenses town criers'),
             "type" => "multipleactiveplayer",
-            "args" => "argTownCrierExpense",
-            "action" => "stTownCrierExpense",
+            "args" => "argTownCriersExpense",
+            "action" => "stTownCriersExpense",
     		"possibleactions" => array( "ItemsProduction" ),
     		"transitions" => array( "ItemsProduction" => 30 )
     ),

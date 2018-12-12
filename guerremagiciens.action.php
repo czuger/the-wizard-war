@@ -42,7 +42,7 @@
   	// TODO: defines your action entry points there
 
 
-    public function actionFinishTownCrierExpense()
+    public function actionFinishTownCriersExpense()
     {
         self::setAjaxMode();     
 
@@ -51,7 +51,7 @@
         $arg1 = self::getArg( "intGlobalExpenseTotal", AT_posint, true );
 
         // Then, call the appropriate method in your game logic, like "playCard" or "myAction"
-        $this->game->gameFinishTownCrierExpense( $arg1 );
+        $this->game->gameFinishTownCriersExpense( $arg1 );
 
         self::ajaxResponse( );        
     }
