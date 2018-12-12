@@ -81,7 +81,7 @@ function (dojo, declare) {
             switch( stateName )
             {
             
-            case 'GlobalExpense':
+            case 'TownCrierExpense':
 
             // console.log( args );
             
@@ -147,8 +147,8 @@ function (dojo, declare) {
                 switch( stateName )
                 {
 
-                case 'GlobalExpense':
-                    this.addActionButton( 'button_1_id', _('Finish'), 'onFinishGlobalExpense' );
+                case 'TownCrierExpense':
+                    this.addActionButton( 'button_1_id', _('Finish'), 'onFinishTownCrierExpense' );
                     break;
 /*               
                  Example:
@@ -207,7 +207,7 @@ function (dojo, declare) {
             $( 'global_expense_total' ).innerHTML = sum;
         },
 
-        onFinishGlobalExpense: function( evt ){
+        onFinishTownCrierExpense: function( evt ){
             console.log( evt );
 
             // Preventing default browser reaction
@@ -219,7 +219,7 @@ function (dojo, declare) {
                 return; 
             }
 
-            this.ajaxcall( "/guerremagiciens/guerremagiciens/actionFinishGlobalExpense.html", 
+            this.ajaxcall( "/guerremagiciens/guerremagiciens/actionFinishTownCrierExpense.html", 
             { 
                 lock: true, 
                 intGlobalExpenseTotal: $( 'global_expense_total' ).innerHTML }, 

@@ -193,7 +193,7 @@ class GuerreMagiciens extends Table
         (note: each method below must match an input method in guerremagiciens.action.php)
     */
 
-    function gameFinishGlobalExpense( $total_expense )
+    function gameFinishTownCrierExpense( $total_expense )
     {
         // Check that this is the player's turn and that it is a "possible action" at this game state (see states.inc.php)
         self::checkAction( 'ItemsProduction' ); 
@@ -250,7 +250,7 @@ class GuerreMagiciens extends Table
         game state.
     */
 
-    function argGlobalExpense()
+    function argTownCrierExpense()
     {
         // Get some values from the current game situation in database...
     
@@ -286,7 +286,7 @@ class GuerreMagiciens extends Table
         The action method of state X is called everytime the current game state is set to X.
     */
     
-    function stGlobalExpense()
+    function stTownCrierExpense()
     {
         // Do some stuff ...
         $this->gamestate->setAllPlayersMultiactive();
