@@ -113,3 +113,22 @@
      position: relative;
  }
 
+ .magical-item{
+    width: 32px;
+    height: 32px;
+    margin: 1px;
+    float: left
+ }
+
+ .magical-item-toratsa {
+    background-image: url('img/talisman-toratsa.jpg');
+}
+
+.magical-item-xephis {
+    background-image: url('img/talisman-xephis.jpg');
+}
+
+.magical-item-yaboul {
+    background-image: url('img/talisman-yaboul.jpg');
+}
+

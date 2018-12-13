@@ -40,6 +40,9 @@ var jstpl_player_board = '\<div class="cp_board">\
 var jstpl_global_expense_input = '<div id="expense_token_t${id}" class="global-expense-coupon">${amount}</div>';
 
 var jstpl_global_expense_sum = '<div id="expenses_total"><span class="">Total : </span><span id="global_expense_total" class="">0</span><div>';
+
+var jstpl_produce_magical_items = '<div id="magical_item_t${id}" class="magical-item magical-item-${magical_item_name}">';
+
 /*
 // Example:
 var jstpl_some_game_item='<div class="my_game_item" id="my_game_item_${id}"></div>';

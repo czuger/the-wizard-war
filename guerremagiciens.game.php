@@ -272,7 +272,7 @@ class GuerreMagiciens extends Table
     
         // return values:
         $sql = "SELECT * FROM `talismans_in_stock`";
-        return self::getCollectionFromDb( $sql );
+        return self::getObjectListFromDB( $sql );
     }    
 
     /*

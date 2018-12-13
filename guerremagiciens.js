@@ -97,8 +97,25 @@ function (dojo, declare) {
 
             case 'ItemsProduction':
 
-                console.log( args );
-                
+                $id = 1;
+
+                args.args.forEach(element => {
+                    console.log( element );
+
+                    console.log( element.talismans_amount );
+
+                    var step;
+                    for (step = 1; step <= parseInt(element.talismans_amount); step++) {
+
+                        console.log( element.talisman_name );
+
+                        dojo.place( this.format_block('jstpl_produce_magical_items', 
+                            { id: $id, magical_item_name: element.talisman_name } ), 'right-area' );
+
+                        $id += 1;
+                    }                    
+                });
+
                 break;                
              
             /* Example:
