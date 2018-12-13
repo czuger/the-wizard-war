@@ -111,6 +111,15 @@ class GuerreMagiciens extends Table
         $sql .= implode( $values, ',' );
         self::DbQuery( $sql );
 
+        $sql = "INSERT INTO talismans_in_stock VALUES ( 'toratsa', 20 )";
+        self::DbQuery( $sql );
+
+        $sql = "INSERT INTO talismans_in_stock VALUES ( 'xephis', 25 )";
+        self::DbQuery( $sql );
+
+        $sql = "INSERT INTO talismans_in_stock VALUES ( 'yaboul', 35 )";
+        self::DbQuery( $sql );
+
         /************ Start the game initialization *****/
 
         // Init global values with their initial values
@@ -148,7 +157,6 @@ class GuerreMagiciens extends Table
         // Get information about players
         // Note: you can retrieve some extra field you added for "player" table in "dbmodel.sql" if you need it.
         $sql = "SELECT player_id id, player_score score, player_money money FROM player ";
-        $result['players'] = self::getCollectionFromDb( $sql );
   
         // TODO: Gather all information about current game situation (visible by player $current_player_id).
         $result['players'] = self::getCollectionFromDb( $sql );      
@@ -256,6 +264,15 @@ class GuerreMagiciens extends Table
     
         // return values:
         return [ 'global_expense_input_tokens' => $this -> global_expense_input_tokens ];
+    }    
+
+    function argItemsProduction()
+    {
+        // Get some values from the current game situation in database...
+    
+        // return values:
+        $sql = "SELECT * FROM `talismans_in_stock`";
+        return self::getCollectionFromDb( $sql );
     }    
 
     /*

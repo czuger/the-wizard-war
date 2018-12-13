@@ -85,14 +85,21 @@ function (dojo, declare) {
 
             // console.log( args );
             
-            args.args.global_expense_input_tokens.forEach(element => {
-                dojo.place( this.format_block('jstpl_global_expense_input', { amount: element.amount, id: element.id } ), 'right-area' );
-                dojo.connect( $('expense_token_t' + element.id), 'onclick', this, 'onClickExpenseCoupon' );
-            });
+                args.args.global_expense_input_tokens.forEach(element => {
+                    dojo.place( this.format_block('jstpl_global_expense_input', { amount: element.amount, id: element.id } ), 'right-area' );
+                    dojo.connect( $('expense_token_t' + element.id), 'onclick', this, 'onClickExpenseCoupon' );
+                });
 
-            dojo.place( this.format_block('jstpl_global_expense_sum', {} ), 'right-area' );
+                dojo.place( this.format_block('jstpl_global_expense_sum', {} ), 'right-area' );
                 
                 break;
+
+
+            case 'ItemsProduction':
+
+                console.log( args );
+                
+                break;                
              
             /* Example:
             

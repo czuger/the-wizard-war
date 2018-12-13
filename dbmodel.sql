@@ -33,9 +33,14 @@
 -- Example 2: add a custom field to the standard "player" table
 -- ALTER TABLE 'player' ADD 'player_my_custom_field' INT UNSIGNED NOT NULL DEFAULT '0';
 
-ALTER TABLE player ADD player_money SMALLINT NOT NULL DEFAULT 50;
-ALTER TABLE player ADD town_criers_expense SMALLINT NOT NULL DEFAULT 0;
-ALTER TABLE player ADD player_laboratories SMALLINT NOT NULL DEFAULT 1;
+ALTER TABLE player ADD player_money SMALLINT UNSIGNED NOT NULL DEFAULT 50;
+ALTER TABLE player ADD town_criers_expense SMALLINT UNSIGNED NOT NULL DEFAULT 0;
+ALTER TABLE player ADD player_laboratories TINYINT UNSIGNED NOT NULL DEFAULT 1;
+
+CREATE TABLE IF NOT EXISTS talismans_in_stock (
+  talisman_name VARCHAR(8) NOT NULL,
+  talismans_amount TINYINT UNSIGNED NOT NULL
+);
 
 CREATE TABLE IF NOT EXISTS fanatics (
   player_id INTEGER NOT NULL,
