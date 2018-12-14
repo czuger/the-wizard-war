@@ -142,7 +142,13 @@ function (dojo, declare) {
             
             switch( stateName )
             {
-            
+                 
+            case 'TownCriersExpense':
+
+                dojo.empty("right-area");
+                
+                break;
+
             /* Example:
             
             case 'myGameState':
