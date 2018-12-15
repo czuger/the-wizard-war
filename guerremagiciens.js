@@ -18,7 +18,8 @@
 define([
     "dojo","dojo/_base/declare",
     "ebg/core/gamegui",
-    "ebg/counter"
+    "ebg/counter",
+    "ebg/stock"
 ],
 function (dojo, declare) {
     return declare("bgagame.guerremagiciens", ebg.core.gamegui, {
@@ -97,19 +98,22 @@ function (dojo, declare) {
 
             case 'ItemsProduction':
 
-                $id = 1;
+                this.magical_items = new ebg.stock();
+                this.magical_items.create( this, $('right-area'), 32, 32 );
+                this.magical_items.image_items_per_row = 3;
+
+                this.magical_items.addItemType( 'magical_item_toratsa', 0, g_gamethemeurl+'img/talisman-toratsa.jpg' );
+                this.magical_items.addItemType( 'magical_item_xephis', 1, g_gamethemeurl+'img/talisman-xephis.jpg' );
+                this.magical_items.addItemType( 'magical_item_yaboul', 2, g_gamethemeurl+'img/talisman-yaboul.jpg' );
+            
+                console.log(this.magical_items);
 
                 args.args.forEach(element => {
-
                     var step;
                     for (step = 1; step <= parseInt(element.talismans_amount); step++) {
+                        var magical_item_id = 'magical_item_' + element.talisman_name;
 
-                        dojo.place( this.format_block('jstpl_produce_magical_items', 
-                            { id: $id, magical_item_name: element.talisman_name } ), 'right-area' );
-                            
-                        dojo.connect( $('magical_item_t' + $id), 'onclick', this, 'onClickProduceMagicalItem' );  
-                          
-                        $id += 1;
+                        this.magical_items.addToStock( magical_item_id );
                     }                    
                 });
 
@@ -175,8 +179,12 @@ function (dojo, declare) {
                 {
 
                 case 'TownCriersExpense':
-                    this.addActionButton( 'button_1_id', _('Finish'), 'onFinishTownCriersExpense' );
+                    this.addActionButton( 'button_onFinishTownCriersExpense_id', _('Finish'), 'onFinishTownCriersExpense' );
                     break;
+
+                case 'ItemsProduction':
+                    this.addActionButton( 'button_onFinishProduceMagicalItem_id', _('Finish'), 'onFinishProduceMagicalItem' );
+                    break;                    
 /*               
                  Example:
  
@@ -234,33 +242,26 @@ function (dojo, declare) {
             }
         },
 
-        onFinishTownCriersExpense: function( evt ){
+        onFinishProduceMagicalItem: function( evt ){
             console.log( evt );
 
             // Preventing default browser reaction
             dojo.stopEvent( evt );
 
             // Check that this action is possible (see "possibleactions" in states.inc.php)
-            if( ! this.checkAction( 'ItemsProduction' ) )
-            {   console.log( 'ItemsProduction not available' );
+            if( ! this.checkAction( 'CitySelling' ) )
+            {   console.log( 'CitySelling not available' );
                 return; 
             }
 
-            this.ajaxcall( "/guerremagiciens/guerremagiciens/actionFinishTownCriersExpense.html", 
+            dojo.query( '.magical-item-selected' ).forEach
+            ;
+
+            this.ajaxcall( "/guerremagiciens/guerremagiciens/actionFinishProduceMagicalItem.html", 
             { 
                 lock: true, 
                 intGlobalExpenseTotal: $( 'global_expense_total' ).innerHTML }, 
-                    this, function( result ) {
-                    
-                    // What to do after the server call if it succeeded
-                    // (most of the time: nothing)
-                    
-                    }, function( is_error) {
-
-                    // What to do after the server call in anyway (success or failure)
-                    // (most of the time: nothing)
-
-                    } );              
+                    this, function( result ) {}, function( is_error) {} );              
         },        
 
         onClickExpenseCoupon: function( evt ){
