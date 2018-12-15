@@ -52,7 +52,7 @@ function (dojo, declare) {
             for( var player_id in gamedatas.players )
             {
                 var player = gamedatas.players[player_id];
-                         
+
                 // TODO: Setting up players boards if needed
                 // Setting up players boards if needed
                 var player_board_div = $('player_board_'+player_id);
@@ -223,9 +223,45 @@ function (dojo, declare) {
                 dojo.removeClass( evt.target.id, 'magical-item-selected' );
             }
             else{
-                dojo.addClass( evt.target.id, 'magical-item-selected' );
+                $laboratories_amount = parseInt( $( 'laboratorycount_p' + this.player_id ).innerHTML );
+
+                if( dojo.query( '.magical-item-selected' ).length < $laboratories_amount ){
+                    dojo.addClass( evt.target.id, 'magical-item-selected' );
+                }
+                else{
+                    this.showMessage( _('You have reached your laboratories limit'), 'error' )
+                }
             }
         },
+
+        onFinishTownCriersExpense: function( evt ){
+            console.log( evt );
+
+            // Preventing default browser reaction
+            dojo.stopEvent( evt );
+
+            // Check that this action is possible (see "possibleactions" in states.inc.php)
+            if( ! this.checkAction( 'ItemsProduction' ) )
+            {   console.log( 'ItemsProduction not available' );
+                return; 
+            }
+
+            this.ajaxcall( "/guerremagiciens/guerremagiciens/actionFinishTownCriersExpense.html", 
+            { 
+                lock: true, 
+                intGlobalExpenseTotal: $( 'global_expense_total' ).innerHTML }, 
+                    this, function( result ) {
+                    
+                    // What to do after the server call if it succeeded
+                    // (most of the time: nothing)
+                    
+                    }, function( is_error) {
+
+                    // What to do after the server call in anyway (success or failure)
+                    // (most of the time: nothing)
+
+                    } );              
+        },        
 
         onClickExpenseCoupon: function( evt ){
             if( dojo.hasClass( evt.target.id, 'global-expense-coupon-selected' ) ){
