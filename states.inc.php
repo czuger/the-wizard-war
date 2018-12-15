@@ -86,8 +86,8 @@ $machinestates = array(
     
     70 => array(
         "name" => "CitySelling",
-        "description" => clienttranslate('${actplayer} must play a card or pass'),
-        "descriptionmyturn" => clienttranslate('${you} must play a card or pass'),
+        "description" => clienttranslate('${actplayer} must sell items in the city'),
+        "descriptionmyturn" => clienttranslate('${you} must sell items in the city'),
         "type" => "activeplayer",
         "possibleactions" => array( "GlobalExpense" ),
         "transitions" => array( "GlobalExpense" => 10 )

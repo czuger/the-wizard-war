@@ -56,6 +56,20 @@
         self::ajaxResponse( );        
     }
 
+    public function actionFinishProduceMagicalItem()
+    {
+        self::setAjaxMode();     
+
+        // Retrieve arguments
+        // Note: these arguments correspond to what has been sent through the javascript "ajaxcall" method
+        $arg1 = self::getArg( "jsonSelectedItems", AT_enum, true, NULL, ['magical_item_toratsa', 'magical_item_xephis', 'magical_item_yaboul'] );
+
+        // Then, call the appropriate method in your game logic, like "playCard" or "myAction"
+        $this->game->gameFinishProduceMagicalItem( $arg1 );
+
+        self::ajaxResponse( );        
+    }
+
     /*
     
     Example:

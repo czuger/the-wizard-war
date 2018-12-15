@@ -221,6 +221,26 @@ class GuerreMagiciens extends Table
         ) );
     }
 
+    function gameFinishProduceMagicalItem( $produced_items )
+    {
+        // Check that this is the player's turn and that it is a "possible action" at this game state (see states.inc.php)
+        self::checkAction( 'CitySelling' ); 
+        
+        $player_id = self::getActivePlayerId();
+
+        // $sql = "UPDATE player SET town_criers_expense=".$total_expense.", player_money=player_money-".$total_expense." WHERE player_id=".$player_id;
+        // self::DbQuery( $sql );
+        
+        // Add your game logic there
+        $this->gamestate->nextState( 'CitySelling' );
+        
+        // Notify all players about the card played
+        self::notifyAllPlayers( "cardPlayed", clienttranslate( "${player_name} has finished it's production" ), array(
+            'player_id' => $player_id,
+            'player_name' => self::getActivePlayerName()
+        ) );
+    }   
+
     /*
     
     Example:

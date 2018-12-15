@@ -226,22 +226,6 @@ function (dojo, declare) {
         
         */
 
-        onClickProduceMagicalItem: function( evt ){
-            if( dojo.hasClass( evt.target.id, 'magical-item-selected' ) ){
-                dojo.removeClass( evt.target.id, 'magical-item-selected' );
-            }
-            else{
-                $laboratories_amount = parseInt( $( 'laboratorycount_p' + this.player_id ).innerHTML );
-
-                if( dojo.query( '.magical-item-selected' ).length < $laboratories_amount ){
-                    dojo.addClass( evt.target.id, 'magical-item-selected' );
-                }
-                else{
-                    this.showMessage( _('You have reached your laboratories limit'), 'error' )
-                }
-            }
-        },
-
         onFinishProduceMagicalItem: function( evt ){
             console.log( evt );
 
@@ -254,13 +238,17 @@ function (dojo, declare) {
                 return; 
             }
 
-            dojo.query( '.magical-item-selected' ).forEach
-            ;
+            console.log( this.magical_items.getSelectedItems() );
+
+            var magical_items = [];
+            this.magical_items.getSelectedItems().forEach(element => {
+                magical_items.push( element.type );                
+            });
 
             this.ajaxcall( "/guerremagiciens/guerremagiciens/actionFinishProduceMagicalItem.html", 
             { 
                 lock: true, 
-                intGlobalExpenseTotal: $( 'global_expense_total' ).innerHTML }, 
+                jsonSelectedItems: magical_items }, 
                     this, function( result ) {}, function( is_error) {} );              
         },        
 
