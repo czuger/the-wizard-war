@@ -33,8 +33,13 @@ This is your game interface. You can edit this HTML in your ".tpl" file.
 
 // Javascript HTML templates
 
-var jstpl_player_board = '\<div class="cp_board">\
-    <div id="coinscount_p${id}" class="coin-text">${money}</div><div id="coinsicon_p${id}" class="coin-icon"></div>\
+var jstpl_player_board = '\<div id="coins-frame">\
+    <div id="coinsicon_p${id}" class="coin-icon"></div>\
+    <div id="coinscount_p${id}" class="coin-text">${money}</div>\
+</div>\
+<div id="laboratories-frame">\
+    <div id="laboratorycount_p${id}" class="laboratories-amount">${laboratories}</div>\
+    <div id="laboratoryicon_p${id}" class="laboratory-icon"></div>\
 </div>';
 
 var jstpl_global_expense_input = '<div id="expense_token_t${id}" class="global-expense-coupon">${amount}</div>';

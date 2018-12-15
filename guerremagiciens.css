@@ -84,6 +84,10 @@
    display: inline-block;
 }
 
+#coins-frame {
+    height: 20px;
+}
+
 .global-expense-coupon {
     width: 32px;
     height: 16px;
@@ -111,6 +115,19 @@
      margin-top: 10px;
      display: inline-block;
      position: relative;
+ }
+
+ .laboratory-icon{
+    width: 26px;
+    height: 24px;
+    margin: 1px;
+    float: left;
+    background-image: url('img/laboratory.jpg');
+ }
+
+ .laboratories-amount{
+    margin-top: 4px;
+    float: left;
  }
 
  .magical-item{
