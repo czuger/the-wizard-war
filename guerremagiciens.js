@@ -100,18 +100,15 @@ function (dojo, declare) {
                 $id = 1;
 
                 args.args.forEach(element => {
-                    console.log( element );
-
-                    console.log( element.talismans_amount );
 
                     var step;
                     for (step = 1; step <= parseInt(element.talismans_amount); step++) {
 
-                        console.log( element.talisman_name );
-
                         dojo.place( this.format_block('jstpl_produce_magical_items', 
                             { id: $id, magical_item_name: element.talisman_name } ), 'right-area' );
-
+                            
+                        dojo.connect( $('magical_item_t' + $id), 'onclick', this, 'onClickProduceMagicalItem' );  
+                          
                         $id += 1;
                     }                    
                 });
@@ -220,6 +217,15 @@ function (dojo, declare) {
             _ make a call to the game server
         
         */
+
+        onClickProduceMagicalItem: function( evt ){
+            if( dojo.hasClass( evt.target.id, 'magical-item-selected' ) ){
+                dojo.removeClass( evt.target.id, 'magical-item-selected' );
+            }
+            else{
+                dojo.addClass( evt.target.id, 'magical-item-selected' );
+            }
+        },
 
         onClickExpenseCoupon: function( evt ){
             if( dojo.hasClass( evt.target.id, 'global-expense-coupon-selected' ) ){

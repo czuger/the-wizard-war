@@ -133,8 +133,13 @@
  .magical-item{
     width: 32px;
     height: 32px;
-    margin: 1px;
+    margin: 3px;
     float: left
+ }
+
+ .magical-item-selected{
+    border: solid 2px black;
+    margin: 1px;
  }
 
  .magical-item-toratsa {
