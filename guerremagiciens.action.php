@@ -62,10 +62,18 @@
 
         // Retrieve arguments
         // Note: these arguments correspond to what has been sent through the javascript "ajaxcall" method
-        $arg1 = self::getArg( "jsonSelectedItems", AT_numberlist, true );
+        $selected_magical_items_raw = self::getArg( "jsonSelectedItems", AT_numberlist, true );
+
+        if( substr( $selected_magical_items_raw, -1 ) == ';' )
+            $selected_magical_items_raw = substr( $selected_magical_items_raw, 0, -1 );
+
+        if( $selected_magical_items_raw == '' )
+            $selected_magical_items = array();
+        else
+            $selected_magical_items = explode( ';', $selected_magical_items_raw );
 
         // Then, call the appropriate method in your game logic, like "playCard" or "myAction"
-        $this->game->gameFinishProduceMagicalItem( $arg1 );
+        $this->game->gameFinishProduceMagicalItem( $selected_magical_items );
 
         self::ajaxResponse( );        
     }

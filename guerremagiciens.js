@@ -240,7 +240,7 @@ function (dojo, declare) {
 
             var magical_items_ajax_params = '';
             this.magical_items.getSelectedItems().forEach(element => {
-                magical_items_ajax_params += element.type + ",";                
+                magical_items_ajax_params += element.type + ";";                
             });
 
             this.ajaxcall( "/guerremagiciens/guerremagiciens/actionFinishProduceMagicalItem.html", 

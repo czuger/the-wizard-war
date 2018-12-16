@@ -228,16 +228,18 @@ class GuerreMagiciens extends Table
         
         $player_id = self::getActivePlayerId();
 
+        self::dump( "Produced items = ", $produced_items );
+
         // $sql = "UPDATE player SET town_criers_expense=".$total_expense.", player_money=player_money-".$total_expense." WHERE player_id=".$player_id;
         // self::DbQuery( $sql );
 
-        $magical_item_array = array('magical_item_toratsa' => 0, 'magical_item_xephis' => 0, 'magical_item_yaboul' => 0);
+        $magical_item_array = array('0' => 0, '1' => 0, '2' => 0);
 
         foreach ($produced_items as &$value) {
             $magical_item_array[$value] += 1;
         }
 
-        $sql = "UPDATE player SET toratsa_in_stock=".$magical_item_array['magical_item_toratsa'].", xephis_in_stock=".$magical_item_array['magical_item_xephis'].", yaboul_in_stock=".$magical_item_array['magical_item_yaboul']." WHERE player_id=".$player_id;
+        $sql = "UPDATE player SET toratsa_in_stock=".$magical_item_array['0'].", xephis_in_stock=".$magical_item_array['1'].", yaboul_in_stock=".$magical_item_array['2']." WHERE player_id=".$player_id;
         self::DbQuery( $sql );
         
         // Add your game logic there
