@@ -111,13 +111,13 @@ class GuerreMagiciens extends Table
         $sql .= implode( $values, ',' );
         self::DbQuery( $sql );
 
-        $sql = "INSERT INTO talismans_in_stock VALUES ( 'toratsa', 20, 0 )";
+        $sql = "INSERT INTO magical_items_in_stock VALUES ( 'toratsa', 20, 0 )";
         self::DbQuery( $sql );
 
-        $sql = "INSERT INTO talismans_in_stock VALUES ( 'xephis', 25, 1 )";
+        $sql = "INSERT INTO magical_items_in_stock VALUES ( 'xephis', 25, 1 )";
         self::DbQuery( $sql );
 
-        $sql = "INSERT INTO talismans_in_stock VALUES ( 'yaboul', 35, 2 )";
+        $sql = "INSERT INTO magical_items_in_stock VALUES ( 'yaboul', 35, 2 )";
         self::DbQuery( $sql );
 
         /************ Start the game initialization *****/
@@ -300,7 +300,7 @@ class GuerreMagiciens extends Table
         // Get some values from the current game situation in database...
     
         // return values:
-        $sql = "SELECT * FROM `talismans_in_stock` ORDER BY talisman_code";
+        $sql = "SELECT * FROM `magical_items_in_stock` ORDER BY magical_item_code";
         return self::getObjectListFromDB( $sql );
     }    
 

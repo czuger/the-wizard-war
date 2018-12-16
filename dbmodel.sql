@@ -41,10 +41,10 @@ ALTER TABLE player ADD toratsa_in_stock TINYINT UNSIGNED NOT NULL DEFAULT 0;
 ALTER TABLE player ADD xephis_in_stock TINYINT UNSIGNED NOT NULL DEFAULT 0;
 ALTER TABLE player ADD yaboul_in_stock TINYINT UNSIGNED NOT NULL DEFAULT 0;
 
-CREATE TABLE IF NOT EXISTS talismans_in_stock (
-  talisman_name VARCHAR(8) NOT NULL,
-  talismans_amount TINYINT UNSIGNED NOT NULL,
-  talisman_code TINYINT UNSIGNED NOT NULL
+CREATE TABLE IF NOT EXISTS magical_items_in_stock (
+  magical_item_name VARCHAR(8) NOT NULL,
+  magical_items_amount TINYINT UNSIGNED NOT NULL,
+  magical_item_code TINYINT UNSIGNED NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS fanatics (

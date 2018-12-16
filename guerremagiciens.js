@@ -110,8 +110,8 @@ function (dojo, declare) {
 
                 args.args.forEach(element => {
                     var step;
-                    for (step = 0; step <= parseInt(element.talismans_amount); step++) {
-                        this.magical_items.addToStock( element.talisman_code );
+                    for (step = 0; step <= parseInt(element.magical_items_amount); step++) {
+                        this.magical_items.addToStock( element.magical_item_code );
                     }                    
                 });
 
