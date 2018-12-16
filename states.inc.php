@@ -80,8 +80,8 @@ $machinestates = array(
         "descriptionmyturn" => clienttranslate('${you} must choose item(s) to produce'),
         "type" => "activeplayer",
         "args" => "argItemsProduction",
-        "possibleactions" => array( "CitySelling" ),
-        "transitions" => array( "CitySelling" => 70 )
+        "possibleactions" => array( "CitySelling", "ItemsProduction" ),
+        "transitions" => array( "CitySelling" => 70, "ItemsProduction" => 30 )
     ),       
     
     70 => array(

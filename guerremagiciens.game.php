@@ -111,13 +111,13 @@ class GuerreMagiciens extends Table
         $sql .= implode( $values, ',' );
         self::DbQuery( $sql );
 
-        $sql = "INSERT INTO talismans_in_stock VALUES ( 'toratsa', 20 )";
+        $sql = "INSERT INTO talismans_in_stock VALUES ( 'toratsa', 20, 0 )";
         self::DbQuery( $sql );
 
-        $sql = "INSERT INTO talismans_in_stock VALUES ( 'xephis', 25 )";
+        $sql = "INSERT INTO talismans_in_stock VALUES ( 'xephis', 25, 1 )";
         self::DbQuery( $sql );
 
-        $sql = "INSERT INTO talismans_in_stock VALUES ( 'yaboul', 35 )";
+        $sql = "INSERT INTO talismans_in_stock VALUES ( 'yaboul', 35, 2 )";
         self::DbQuery( $sql );
 
         /************ Start the game initialization *****/
@@ -230,12 +230,21 @@ class GuerreMagiciens extends Table
 
         // $sql = "UPDATE player SET town_criers_expense=".$total_expense.", player_money=player_money-".$total_expense." WHERE player_id=".$player_id;
         // self::DbQuery( $sql );
+
+        $magical_item_array = array('magical_item_toratsa' => 0, 'magical_item_xephis' => 0, 'magical_item_yaboul' => 0);
+
+        foreach ($produced_items as &$value) {
+            $magical_item_array[$value] += 1;
+        }
+
+        $sql = "UPDATE player SET toratsa_in_stock=".$magical_item_array['magical_item_toratsa'].", xephis_in_stock=".$magical_item_array['magical_item_xephis'].", yaboul_in_stock=".$magical_item_array['magical_item_yaboul']." WHERE player_id=".$player_id;
+        self::DbQuery( $sql );
         
         // Add your game logic there
-        $this->gamestate->nextState( 'CitySelling' );
+        $this->gamestate->nextState( 'ItemsProduction' );
         
         // Notify all players about the card played
-        self::notifyAllPlayers( "cardPlayed", clienttranslate( "${player_name} has finished it's production" ), array(
+        self::notifyAllPlayers( "cardPlayed", clienttranslate( '${player_name} has finished it\'s production' ), array(
             'player_id' => $player_id,
             'player_name' => self::getActivePlayerName()
         ) );
@@ -291,7 +300,7 @@ class GuerreMagiciens extends Table
         // Get some values from the current game situation in database...
     
         // return values:
-        $sql = "SELECT * FROM `talismans_in_stock`";
+        $sql = "SELECT * FROM `talismans_in_stock` ORDER BY talisman_code";
         return self::getObjectListFromDB( $sql );
     }    
 

@@ -102,18 +102,16 @@ function (dojo, declare) {
                 this.magical_items.create( this, $('right-area'), 32, 32 );
                 this.magical_items.image_items_per_row = 3;
 
-                this.magical_items.addItemType( 'magical_item_toratsa', 0, g_gamethemeurl+'img/talisman-toratsa.jpg' );
-                this.magical_items.addItemType( 'magical_item_xephis', 1, g_gamethemeurl+'img/talisman-xephis.jpg' );
-                this.magical_items.addItemType( 'magical_item_yaboul', 2, g_gamethemeurl+'img/talisman-yaboul.jpg' );
+                this.magical_items.addItemType( 0, 0, g_gamethemeurl+'img/talisman-toratsa.jpg' );
+                this.magical_items.addItemType( 1, 1, g_gamethemeurl+'img/talisman-xephis.jpg' );
+                this.magical_items.addItemType( 2, 2, g_gamethemeurl+'img/talisman-yaboul.jpg' );
             
                 console.log(this.magical_items);
 
                 args.args.forEach(element => {
                     var step;
-                    for (step = 1; step <= parseInt(element.talismans_amount); step++) {
-                        var magical_item_id = 'magical_item_' + element.talisman_name;
-
-                        this.magical_items.addToStock( magical_item_id );
+                    for (step = 0; step <= parseInt(element.talismans_amount); step++) {
+                        this.magical_items.addToStock( element.talisman_code );
                     }                    
                 });
 
@@ -240,15 +238,15 @@ function (dojo, declare) {
 
             console.log( this.magical_items.getSelectedItems() );
 
-            var magical_items = [];
+            var magical_items_ajax_params = '';
             this.magical_items.getSelectedItems().forEach(element => {
-                magical_items.push( element.type );                
+                magical_items_ajax_params += element.type + ",";                
             });
 
             this.ajaxcall( "/guerremagiciens/guerremagiciens/actionFinishProduceMagicalItem.html", 
             { 
                 lock: true, 
-                jsonSelectedItems: magical_items }, 
+                jsonSelectedItems: magical_items_ajax_params }, 
                     this, function( result ) {}, function( is_error) {} );              
         },        
 
