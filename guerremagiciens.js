@@ -99,8 +99,7 @@ function (dojo, declare) {
             case 'ItemsProduction':
 
                 this.magical_items = new ebg.stock();
-                this.magical_items.create( this, $('right-area'), 32, 32 );
-                this.magical_items.image_items_per_row = 3;
+                this.magical_items.create( this, $('stock-area'), 32, 32 );
 
                 this.magical_items.addItemType( 0, 0, g_gamethemeurl+'img/talisman-toratsa.jpg' );
                 this.magical_items.addItemType( 1, 1, g_gamethemeurl+'img/talisman-xephis.jpg' );

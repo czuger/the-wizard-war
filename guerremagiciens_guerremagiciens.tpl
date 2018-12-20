@@ -56,6 +56,8 @@ var jstpl_some_game_item='<div class="my_game_item" id="my_game_item_${id}"></di
 
 </script>  
 
+<div id="stock-area" class="whiteblock"></div>
+
 <div id="board"></div>
 
 <div id="right-area"></div>
