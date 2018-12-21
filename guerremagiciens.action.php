@@ -50,7 +50,7 @@
         $arg1 = self::getArg( "intSelectedFanaticsToken", AT_int, true );
 
         // Then, call the appropriate method in your game logic, like "playCard" or "myAction"
-        // $this->game->gameFinishFanaticsDominanceSetup( $arg1 );
+        $this->game->gameFinishFanaticsDominanceSetup( $arg1 );
 
         self::ajaxResponse( );        
     }

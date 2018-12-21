@@ -256,7 +256,8 @@ function (dojo, declare) {
 
             var selected_item = -1;
             if( this.fanatics_list.getSelectedItems().length >= 1 ){
-                selected_item = this.fanatics_list.getSelectedItems()[0];
+                console.log( this.fanatics_list.getSelectedItems()[0]['type'] );
+                selected_item = this.fanatics_list.getSelectedItems()[0]['type'];
             }
 
             this.ajaxcall( "/guerremagiciens/guerremagiciens/actionFinishFanaticsDominanceSetup.html", 

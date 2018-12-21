@@ -215,21 +215,26 @@ class GuerreMagiciens extends Table
         // Check that this is the player's turn and that it is a "possible action" at this game state (see states.inc.php)
         self::checkAction( 'TownCriersExpense' ); 
         
-        $player_id = self::getActivePlayerId();
+        if( $selected_fanatics != '-1' ){
+            $player_id = self::getActivePlayerId();
+    
+            $sql = "SELECT * FROM fanatics WHERE fanatics_code=".$selected_fanatics." AND player_id=".$player_id;
+            $collection = self::getCollectionFromDb( $sql );
+            $first_key = array_keys( $collection )[0];
+            $result = $collection[$first_key];
 
-        var_dump( $selected_fanatics );
+            $sql = "UPDATE fanatics SET in_hall=1 WHERE internal_code=".$result['internal_code']." AND player_id=".$player_id;
+            self::DbQuery( $sql );
+        }
 
-        // $sql = "SELECT * FROM WHERE fanatics_code=".$selected_fanatics." AND player_id=".$player_id;
-        // self::DbQuery( $sql );
+        // Add your game logic there
+        $this->gamestate->nextState( 'TownCriersExpense' );
         
-        // // Add your game logic there
-        // $this->gamestate->nextState( 'ItemsProduction' );
-        
-        // // Notify all players about the card played
-        // self::notifyAllPlayers( "cardPlayed", clienttranslate( '${player_name} has done his initial investisment' ), array(
-        //     'player_id' => $player_id,
-        //     'player_name' => self::getActivePlayerName()
-        // ) );
+        // Notify all players about the card played
+        self::notifyAllPlayers( "FanaticsDominanceSetupDone", clienttranslate( '${player_name} has selected his fanatics' ), array(
+            'player_id' => $player_id,
+            'player_name' => self::getActivePlayerName()
+        ) );
     }
 
     function gameFinishTownCriersExpense( $total_expense )
