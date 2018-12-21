@@ -83,7 +83,6 @@ function (dojo, declare) {
             {
             
             case 'FanaticsDominanceSetup':
-            
                 this.fanatics_list = new ebg.stock();
                 this.fanatics_list.image_items_per_row = 1;
                 this.fanatics_list.setSelectionMode( 1 );                
@@ -189,8 +188,14 @@ function (dojo, declare) {
                       
             if( this.isCurrentPlayerActive() )
             {            
+                console.log( 'isCurrentPlayerActive' );
+
                 switch( stateName )
                 {
+
+                case 'FanaticsDominanceSetup':
+                    this.addActionButton( 'button_onFanaticsDominanceSetup_id', _('Finish'), 'onFanaticsDominanceSetup' );
+                    break;
 
                 case 'TownCriersExpense':
                     this.addActionButton( 'button_onFinishTownCriersExpense_id', _('Finish'), 'onFinishTownCriersExpense' );
@@ -239,6 +244,27 @@ function (dojo, declare) {
             _ make a call to the game server
         
         */
+        onFanaticsDominanceSetup: function( evt ){
+            // Preventing default browser reaction
+            dojo.stopEvent( evt );
+
+            // Check that this action is possible (see "possibleactions" in states.inc.php)
+            if( ! this.checkAction( 'TownCriersExpense' ) )
+            {   console.log( 'TownCriersExpense not available' );
+                return; 
+            }
+
+            var selected_item = -1;
+            if( this.fanatics_list.getSelectedItems().length >= 1 ){
+                selected_item = this.fanatics_list.getSelectedItems()[0];
+            }
+
+            this.ajaxcall( "/guerremagiciens/guerremagiciens/actionFinishFanaticsDominanceSetup.html", 
+            { 
+                lock: true, 
+                intSelectedFanaticsToken: selected_item }, 
+                    this, function( result ) {}, function( is_error) {} );              
+        },   
 
         onFinishProduceMagicalItem: function( evt ){
             console.log( evt );

@@ -210,6 +210,28 @@ class GuerreMagiciens extends Table
         (note: each method below must match an input method in guerremagiciens.action.php)
     */
 
+    function gameFinishFanaticsDominanceSetup( $selected_fanatics )
+    {
+        // Check that this is the player's turn and that it is a "possible action" at this game state (see states.inc.php)
+        self::checkAction( 'TownCriersExpense' ); 
+        
+        $player_id = self::getActivePlayerId();
+
+        var_dump( $selected_fanatics );
+
+        // $sql = "SELECT * FROM WHERE fanatics_code=".$selected_fanatics." AND player_id=".$player_id;
+        // self::DbQuery( $sql );
+        
+        // // Add your game logic there
+        // $this->gamestate->nextState( 'ItemsProduction' );
+        
+        // // Notify all players about the card played
+        // self::notifyAllPlayers( "cardPlayed", clienttranslate( '${player_name} has done his initial investisment' ), array(
+        //     'player_id' => $player_id,
+        //     'player_name' => self::getActivePlayerName()
+        // ) );
+    }
+
     function gameFinishTownCriersExpense( $total_expense )
     {
         // Check that this is the player's turn and that it is a "possible action" at this game state (see states.inc.php)
@@ -353,6 +375,15 @@ class GuerreMagiciens extends Table
         Here, you can create methods defined as "game state actions" (see "action" property in states.inc.php).
         The action method of state X is called everytime the current game state is set to X.
     */
+
+    function stFanaticsDominanceSetup()
+    {
+        // Do some stuff ...
+        $this->gamestate->setAllPlayersMultiactive();
+
+        // (very often) go to another gamestate
+        // $this->gamestate->nextState( 'some_gamestate_transition' );
+    }    
     
     function stTownCriersExpense()
     {

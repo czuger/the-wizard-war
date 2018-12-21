@@ -69,19 +69,20 @@ $machinestates = array(
         "descriptionmyturn" => clienttranslate('${you} must select fanatics for future fanatics phase'),
         "type" => "multipleactiveplayer",
         "args" => "argFanaticsDominanceSetup",
+        "action" => "stFanaticsDominanceSetup",
         "possibleactions" => array( "TownCriersExpense" ),
         "transitions" => array( "TownCriersExpense" => 20 )
     ),
 
     20 => array(
-    		"name" => "TownCriersExpense",
-    		"description" => clienttranslate('Players must select expenses for town criers'),
-    		"descriptionmyturn" => clienttranslate('Players must select expenses town criers'),
-            "type" => "multipleactiveplayer",
-            "args" => "argTownCriersExpense",
-            "action" => "stTownCriersExpense",
-    		"possibleactions" => array( "ItemsProduction" ),
-    		"transitions" => array( "ItemsProduction" => 30 )
+        "name" => "TownCriersExpense",
+        "description" => clienttranslate('Players must select expenses for town criers'),
+        "descriptionmyturn" => clienttranslate('Players must select expenses town criers'),
+        "type" => "multipleactiveplayer",
+        "args" => "argTownCriersExpense",
+        "action" => "stTownCriersExpense",
+        "possibleactions" => array( "ItemsProduction" ),
+        "transitions" => array( "ItemsProduction" => 30 )
     ),
 
     30 => array(

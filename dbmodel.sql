@@ -48,9 +48,11 @@ CREATE TABLE IF NOT EXISTS magical_items_in_stock (
 );
 
 CREATE TABLE IF NOT EXISTS fanatics (
+  internal_code INTEGER UNSIGNED NOT NULL AUTO_INCREMENT,
   player_id INTEGER NOT NULL,
   fanatics_name VARCHAR(1) NOT NULL,
   fanatics_strength TINYINT NOT NULL,
   fanatics_code TINYINT NOT NULL,
-  in_hall boolean NOT NULL DEFAULT 0
+  in_hall boolean NOT NULL DEFAULT 0, 
+  PRIMARY KEY (internal_code)
 );
