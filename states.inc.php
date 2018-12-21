@@ -58,12 +58,12 @@ $machinestates = array(
         "description" => "",
         "type" => "manager",
         "action" => "stGameSetup",
-        "transitions" => array( "" => 10 )
+        "transitions" => array( "" => 100 )
     ),
     
     // Note: ID=2 => your first state
 
-    10 => array(
+    100 => array(
         "name" => "FanaticsDominanceSetup",
         "description" => clienttranslate('Players must select fanatics for future fanatics phase'),
         "descriptionmyturn" => clienttranslate('${you} must select fanatics for future fanatics phase'),
@@ -71,10 +71,10 @@ $machinestates = array(
         "args" => "argFanaticsDominanceSetup",
         "action" => "stFanaticsDominanceSetup",
         "possibleactions" => array( "TownCriersExpense" ),
-        "transitions" => array( "TownCriersExpense" => 20 )
+        "transitions" => array( "TownCriersExpense" => 150 )
     ),
 
-    20 => array(
+    150 => array(
         "name" => "TownCriersExpense",
         "description" => clienttranslate('Players must select expenses for town criers'),
         "descriptionmyturn" => clienttranslate('Players must select expenses town criers'),
@@ -82,18 +82,18 @@ $machinestates = array(
         "args" => "argTownCriersExpense",
         "action" => "stTownCriersExpense",
         "possibleactions" => array( "ItemsProduction" ),
-        "transitions" => array( "ItemsProduction" => 30 )
+        "transitions" => array( "ItemsProduction" => 300 )
     ),
 
-    30 => array(
+    300 => array(
         "name" => "ItemsProduction",
         "description" => clienttranslate('${actplayer} must choose item(s) to produce'),
         "descriptionmyturn" => clienttranslate('${you} must choose item(s) to produce'),
         "type" => "activeplayer",
         "args" => "argItemsProduction",
-        "possibleactions" => array( "CitySelling" ),
-        "transitions" => array( "CitySelling" => 70 )
-    ),       
+        "possibleactions" => array( "FanaticsDominanceSetup" ),
+        "transitions" => array( "FanaticsDominanceSetup" => 100 )
+    ),    
     
     70 => array(
         "name" => "CitySelling",

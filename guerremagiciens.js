@@ -158,10 +158,15 @@ function (dojo, declare) {
             {
                  
             case 'TownCriersExpense':
-
                 dojo.empty("right-area");
                 
                 break;
+
+            case 'ItemsProduction':
+            case 'FanaticsDominanceSetup':
+                dojo.empty("stock-area");
+                
+                break;                
 
             /* Example:
             
@@ -274,8 +279,8 @@ function (dojo, declare) {
             dojo.stopEvent( evt );
 
             // Check that this action is possible (see "possibleactions" in states.inc.php)
-            if( ! this.checkAction( 'CitySelling' ) )
-            {   console.log( 'CitySelling not available' );
+            if( ! this.checkAction( 'FanaticsDominanceSetup' ) )
+            {   console.log( 'FanaticsDominanceSetup not available' );
                 return; 
             }
 

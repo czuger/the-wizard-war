@@ -214,10 +214,9 @@ class GuerreMagiciens extends Table
     {
         // Check that this is the player's turn and that it is a "possible action" at this game state (see states.inc.php)
         self::checkAction( 'TownCriersExpense' ); 
-        
+        $player_id = self::getActivePlayerId();
+
         if( $selected_fanatics != '-1' ){
-            $player_id = self::getActivePlayerId();
-    
             $sql = "SELECT * FROM fanatics WHERE fanatics_code=".$selected_fanatics." AND player_id=".$player_id;
             $collection = self::getCollectionFromDb( $sql );
             $first_key = array_keys( $collection )[0];
@@ -260,7 +259,7 @@ class GuerreMagiciens extends Table
     function gameFinishProduceMagicalItem( $produced_items )
     {
         // Check that this is the player's turn and that it is a "possible action" at this game state (see states.inc.php)
-        self::checkAction( 'CitySelling' ); 
+        self::checkAction( 'FanaticsDominanceSetup' ); 
         
         $player_id = self::getActivePlayerId();
 
@@ -279,7 +278,7 @@ class GuerreMagiciens extends Table
         self::DbQuery( $sql );
         
         // Add your game logic there
-        $this->gamestate->nextState( 'ItemsProduction' );
+        $this->gamestate->nextState( 'FanaticsDominanceSetup' );
         
         // Notify all players about the card played
         self::notifyAllPlayers( "cardPlayed", clienttranslate( '${player_name} has finished it\'s production' ), array(
