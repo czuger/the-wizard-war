@@ -82,6 +82,23 @@ function (dojo, declare) {
             switch( stateName )
             {
             
+            case 'FanaticsDominanceSetup':
+            
+                this.fanatics_list = new ebg.stock();
+                this.fanatics_list.image_items_per_row = 1;
+                this.fanatics_list.setSelectionMode( 1 );                
+                this.fanatics_list.create( this, $('stock-area'), 89, 23 );
+
+                Object.keys( args.args.fanatics_tokens ).forEach(element => {
+                    this.fanatics_list.addItemType( parseInt(element), parseInt(element), g_gamethemeurl+'img/fanatics.jpg', parseInt(element) );                
+                });
+
+                args.args.user_fanatics.forEach(element => {
+                    this.fanatics_list.addToStock( parseInt(element.fanatics_code) );              
+                });
+
+                break;
+
             case 'TownCriersExpense':
 
             // console.log( args );

@@ -69,7 +69,6 @@ $machinestates = array(
         "descriptionmyturn" => clienttranslate('${you} must select fanatics for future fanatics phase'),
         "type" => "multipleactiveplayer",
         "args" => "argFanaticsDominanceSetup",
-        "action" => "stFanaticsDominanceSetup",
         "possibleactions" => array( "TownCriersExpense" ),
         "transitions" => array( "TownCriersExpense" => 20 )
     ),

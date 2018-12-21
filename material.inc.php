@@ -19,17 +19,25 @@
  *
  */
 
-
-$this -> fanatics = array_merge(
-    array_fill( 0, 5, [ 'side' => 'y', 'strength' => 3 ] ),
-    array_fill( 4, 5, [ 'side' => 'y', 'strength' => 2 ] ),
-    array_fill( 9, 4, [ 'side' => 'y', 'strength' => 1 ] ),
-    array_fill( 13, 3, [ 'side' => 'x', 'strength' => 3 ] ),
-    array_fill( 16, 2, [ 'side' => 'x', 'strength' => 2 ] ),
-    array_fill( 18, 4, [ 'side' => 'x', 'strength' => 1 ] )
-);
-
+// Fanatics data
 $this -> nb_fanatics = [ 1 => 6, 2 => 6, 3 => 5, 4 => 5, 5 => 4, 6 => 4 ];
+$this -> fanatics_tokens = [
+    0 => [ 'side' => 'y', 'strength' => 1 ],
+    1 => [ 'side' => 'y', 'strength' => 2 ],
+    2 => [ 'side' => 'y', 'strength' => 3 ],
+    3 => [ 'side' => 'x', 'strength' => 1 ],
+    4 => [ 'side' => 'x', 'strength' => 2 ],
+    5 => [ 'side' => 'x', 'strength' => 3 ]
+];
+
+$this -> fanatics_tokens_pool = array_merge(
+    array_fill( 0, 5, 2 ),
+    array_fill( 4, 5, 1 ),
+    array_fill( 9, 4, 0 ),
+    array_fill( 13, 3, 5 ),
+    array_fill( 16, 2, 4 ),
+    array_fill( 18, 4, 3 )
+);
 
 $this -> nb_turns_by_players = [ 1 => 4, 2 => 8, 3 => 9, 4 => 8, 5 => 10, 6 => 12 ];
 

@@ -87,23 +87,29 @@ class GuerreMagiciens extends Table
         self::reattributeColorsBasedOnPreferences( $players, $gameinfos['player_colors'] );
         self::reloadPlayersBasicInfos();
 
-        shuffle( $this -> fanatics );
+        //
+        // We dispatch the fanatics tokens
+        //
+        shuffle( $this -> fanatics_tokens_pool );
         // var_dump( $this -> fanatics );
 
-        $sql = "INSERT INTO fanatics (player_id, fanatics_names, fanatics_strength) VALUES ";
+        $sql = "INSERT INTO fanatics (player_id, fanatics_name, fanatics_strength, fanatics_code) VALUES ";
         $values = array();
 
         foreach( $players as $player_id => $player )
         {
             foreach(range(1, $this -> nb_fanatics[ count( $players ) ]) as $number) {
 
-                $fanatic_token = array_shift( $this -> fanatics );
+                $fanatic_token_code = array_shift( $this -> fanatics_tokens_pool );
+
+                $fanatic_token = $this -> fanatics_tokens[ $fanatic_token_code ];
 
                 $subset_values = [];
 
                 $subset_values[]= $player_id;
                 $subset_values[]= "'".$fanatic_token['side']."'";
                 $subset_values[]= "'".$fanatic_token['strength']."'";
+                $subset_values[]= "'".$fanatic_token_code."'";
 
                 $values[]= "(" . implode( $subset_values, ',' ) . ")";
             }
@@ -111,6 +117,9 @@ class GuerreMagiciens extends Table
         $sql .= implode( $values, ',' );
         self::DbQuery( $sql );
 
+        //
+        // We create the magical items stock
+        //
         $sql = "INSERT INTO magical_items_in_stock VALUES ( 'toratsa', 20, 0 )";
         self::DbQuery( $sql );
 
@@ -288,6 +297,17 @@ class GuerreMagiciens extends Table
         These methods function is to return some additional information that is specific to the current
         game state.
     */
+
+    function argFanaticsDominanceSetup()
+    {
+        // Get some values from the current game situation in database...
+    
+        // return values:
+        $sql = "SELECT * FROM `fanatics` ORDER BY fanatics_code";
+        $user_fanatics = self::getObjectListFromDB( $sql );
+
+        return [ 'user_fanatics' => $user_fanatics, 'fanatics_tokens' => $this -> fanatics_tokens ];
+    }    
 
     function argTownCriersExpense()
     {
