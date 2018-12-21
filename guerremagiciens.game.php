@@ -278,6 +278,11 @@ class GuerreMagiciens extends Table
         self::DbQuery( $sql );
         
         // Add your game logic there
+
+        // Clear fanatics selected by users.
+        $sql = "DELETE FROM fanatics WHERE in_hall=1";
+        self::DbQuery( $sql );
+
         $this->gamestate->nextState( 'FanaticsDominanceSetup' );
         
         // Notify all players about the card played
