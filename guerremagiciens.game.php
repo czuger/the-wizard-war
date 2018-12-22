@@ -33,9 +33,9 @@ class GuerreMagiciens extends Table
         parent::__construct();
         
         self::initGameStateLabels( array( 
-            'toratsa' => $this -> wizard_to_code['toratsa'],
-            'xephis' => $this -> wizard_to_code['xephis'],
-            'yaboul' => $this -> wizard_to_code['yaboul']
+            'toratsa' => $this -> wizard_item_to_code['toratsa'],
+            'xephis' => $this -> wizard_item_to_code['xephis'],
+            'yaboul' => $this -> wizard_item_to_code['yaboul']
             //    "my_second_global_variable" => 11,
             //    "my_first_global_variable" => 10,
             //    "my_second_global_variable" => 11,
@@ -266,33 +266,64 @@ class GuerreMagiciens extends Table
         
         $player_id = self::getActivePlayerId();
 
-        self::dump( "Produced items = ", $produced_items );
-
-        // $sql = "UPDATE player SET town_criers_expense=".$total_expense.", player_money=player_money-".$total_expense." WHERE player_id=".$player_id;
-        // self::DbQuery( $sql );
-
-        $magical_item_array = array('0' => 0, '1' => 0, '2' => 0);
-
-        foreach ($produced_items as &$value) {
-            $magical_item_array[$value] += 1;
-        }
-
-        $sql = "UPDATE player SET toratsa_in_stock=".$magical_item_array['0'].", xephis_in_stock=".$magical_item_array['1'].", yaboul_in_stock=".$magical_item_array['2']." WHERE player_id=".$player_id;
-        self::DbQuery( $sql );
+        // self::dump( "Produced items = ", $produced_items );
         
         // Add your game logic there
+        $magical_item_array = array(10 => 0, 11 => 0, 12 => 0);
+        $magical_items_count = 0;
 
-        // Clear fanatics selected by users.
-        $sql = "DELETE FROM fanatics WHERE in_hall=1";
-        self::DbQuery( $sql );
+        foreach ($produced_items as &$value) {
+            $magical_item_array[ intval( $value ) ] += 1;  
+            $magical_items_count += 1;
+        }
 
-        $this->gamestate->nextState( 'FanaticsDominanceSetup' );
-        
-        // Notify all players about the card played
-        self::notifyAllPlayers( "cardPlayed", clienttranslate( '${player_name} has finished it\'s production' ), array(
-            'player_id' => $player_id,
-            'player_name' => self::getActivePlayerName()
-        ) );
+        $sql = "SELECT laboratories FROM player WHERE player_id=".$player_id;
+        $laboartories_count = self::getUniqueValueFromDB( $sql );
+
+        if( $magical_items_count > $laboartories_count )
+        {
+            $error_message = clienttranslate( 'You can\'t produce more than '.$laboartories_count.' items' );
+            self::notifyPlayer( $player_id, "tooMuchItemProduced", $error_message, array(
+                'player_id' => $player_id,
+                'player_name' => self::getActivePlayerName(),
+                'error_message' => $error_message
+            ) );
+        }
+        else
+        {
+            self::incGameStateValue( 'toratsa', -$magical_item_array[10] );
+            self::incGameStateValue( 'xephis', -$magical_item_array[11] );
+            self::incGameStateValue( 'yaboul', -$magical_item_array[12] );
+    
+            $sql = "UPDATE player SET toratsa_in_production = ".$magical_item_array[10]
+                .", xephis_in_production = ".$magical_item_array[11]
+                .", yaboul_in_production = ".$magical_item_array[12]." WHERE player_id=".$player_id;
+            self::DbQuery( $sql );
+    
+            // Fanatics phase here
+    
+            // Update stock
+            $sql = "UPDATE player SET toratsa_in_stock = toratsa_in_stock + toratsa_in_production, 
+                xephis_in_stock = xephis_in_stock + xephis_in_production,
+                yaboul_in_stock = yaboul_in_stock + yaboul_in_production WHERE player_id=".$player_id;
+                self::DbQuery( $sql );
+    
+            $sql = "UPDATE player SET toratsa_in_production = 0, xephis_in_production = 0, yaboul_in_production = 0 
+                WHERE player_id=".$player_id;
+                self::DbQuery( $sql );    
+    
+            // Clear fanatics selected by users.
+            $sql = "DELETE FROM fanatics WHERE in_hall=1";
+            self::DbQuery( $sql );
+    
+            $this->gamestate->nextState( 'FanaticsDominanceSetup' );
+            
+            // Notify all players about the card played
+            self::notifyAllPlayers( "cardPlayed", clienttranslate( '${player_name} has finished it\'s production' ), array(
+                'player_id' => $player_id,
+                'player_name' => self::getActivePlayerName()
+            ) );
+        }
     }   
 
     /*
@@ -357,9 +388,9 @@ class GuerreMagiciens extends Table
     
         // return values:
         $sql = "SELECT * FROM `magical_items_in_stock` ORDER BY magical_item_code";
-        return [ $this -> wizard_to_code['toratsa'] => intval( self::getGameStateValue( 'toratsa' ) ), 
-            $this -> wizard_to_code['xephis'] => intval( self::getGameStateValue( 'xephis' ) ), 
-            $this -> wizard_to_code['yaboul'] => intval( self::getGameStateValue( 'yaboul' ) ) ];
+        return [ $this -> wizard_item_to_code['toratsa'] => intval( self::getGameStateValue( 'toratsa' ) ), 
+            $this -> wizard_item_to_code['xephis'] => intval( self::getGameStateValue( 'xephis' ) ), 
+            $this -> wizard_item_to_code['yaboul'] => intval( self::getGameStateValue( 'yaboul' ) ) ];
     }    
 
     /*

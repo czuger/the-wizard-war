@@ -267,29 +267,7 @@ function (dojo, declare) {
                 lock: true, 
                 intSelectedFanaticsToken: selected_item }, 
                     this, function( result ) {}, function( is_error) {} );              
-        },   
-
-        onFinishProduceMagicalItem: function( evt ){
-            // Preventing default browser reaction
-            dojo.stopEvent( evt );
-
-            // Check that this action is possible (see "possibleactions" in states.inc.php)
-            if( ! this.checkAction( 'FanaticsDominanceSetup' ) )
-            {   console.log( 'FanaticsDominanceSetup not available' );
-                return; 
-            }
-
-            var magical_items_ajax_params = '';
-            this.magical_items.getSelectedItems().forEach(element => {
-                magical_items_ajax_params += element.type + ";";                
-            });
-
-            this.ajaxcall( "/guerremagiciens/guerremagiciens/actionFinishProduceMagicalItem.html", 
-            { 
-                lock: true, 
-                jsonSelectedItems: magical_items_ajax_params }, 
-                    this, function( result ) {}, function( is_error) {} );              
-        },        
+        },       
 
         onClickExpenseCoupon: function( evt ){
             if( dojo.hasClass( evt.target.id, 'global-expense-coupon-selected' ) ){
@@ -323,6 +301,28 @@ function (dojo, declare) {
                 intGlobalExpenseTotal: $( 'global_expense_total' ).innerHTML }, 
                     this, function( result ) {}, function( is_error) {} );              
         },
+
+        onFinishProduceMagicalItem: function( evt ){
+            // Preventing default browser reaction
+            dojo.stopEvent( evt );
+
+            // Check that this action is possible (see "possibleactions" in states.inc.php)
+            if( ! this.checkAction( 'FanaticsDominanceSetup' ) )
+            {   console.log( 'FanaticsDominanceSetup not available' );
+                return; 
+            }
+
+            var magical_items_ajax_params = '';
+            this.magical_items.getSelectedItems().forEach(element => {
+                magical_items_ajax_params += element.type + ";";                
+            });
+
+            this.ajaxcall( "/guerremagiciens/guerremagiciens/actionFinishProduceMagicalItem.html", 
+            { 
+                lock: true, 
+                jsonSelectedItems: magical_items_ajax_params }, 
+                    this, function( result ) {}, function( is_error) {} );              
+        },        
         
         /* Example:
         
@@ -377,6 +377,9 @@ function (dojo, declare) {
             
             // TODO: here, associate your game notifications with local methods
             dojo.subscribe( 'playerExpenseFinished', this, "notif_playerExpenseFinished" );
+
+            dojo.subscribe( 'tooMuchItemProduced', this, "notif_tooMuchItemProduced" );
+            // this.notifqueue.setSynchronous( 'tooMuchItemProduced', 3000 );
             
             // Example 1: standard notification handling
             // dojo.subscribe( 'cardPlayed', this, "notif_cardPlayed" );
@@ -403,6 +406,18 @@ function (dojo, declare) {
             
             // TODO: play the card in the user interface.
         },  
+
+        notif_tooMuchItemProduced: function( notif )
+        {
+            console.log( 'notif_playerExpenseFinished' );
+            console.log( notif.args );
+
+            this.showMessage( notif.args['error_message'], 'error' );
+            
+            // Note: notif.args contains the arguments specified during you "notifyAllPlayers" / "notifyPlayer" PHP call
+            
+            // TODO: play the card in the user interface.
+        }, 
 
         /*
         Example:

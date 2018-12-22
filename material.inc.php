@@ -47,8 +47,8 @@ $this -> global_expense_input_tokens = [
     [ 'amount' => 2, 'id' => 70 ], [ 'amount' => 1, 'id' => 90 ]
 ];
 
-$this -> wizard_to_code = [ 'toratsa' => 10, 'xephis' => 11, 'yaboul'=> 12 ];
-$this -> code_to_wizard = [ 10 => 'toratsa', 11 => 'xephis', 12 => 'yaboul' ];
+$this -> wizard_item_to_code = [ 'toratsa' => 10, 'xephis' => 11, 'yaboul'=> 12 ];
+$this -> code_to_wizard_item = [ 10 => 'toratsa', 11 => 'xephis', 12 => 'yaboul' ];
 
 /*
 
