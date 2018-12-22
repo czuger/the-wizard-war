@@ -245,14 +245,18 @@ class GuerreMagiciens extends Table
 
         $sql = "UPDATE player SET town_criers_expense=".$total_expense.", player_money=player_money-".$total_expense." WHERE player_id=".$player_id;
         self::DbQuery( $sql );
+
+        $sql = "SELECT player_money FROM player WHERE player_id=".$player_id;
+        $player_money = self::getUniqueValueFromDB( $sql );
         
         // Add your game logic there
         $this->gamestate->nextState( 'ItemsProduction' );
         
         // Notify all players about the card played
-        self::notifyAllPlayers( "cardPlayed", clienttranslate( '${player_name} has done his initial investisment' ), array(
+        self::notifyAllPlayers( "playerExpenseFinished", clienttranslate( '${player_name} has done his initial investisment' ), array(
             'player_id' => $player_id,
-            'player_name' => self::getActivePlayerName()
+            'player_name' => self::getActivePlayerName(),
+            'player_money' => $player_money
         ) );
     }
 

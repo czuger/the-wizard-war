@@ -66,7 +66,7 @@
         // Then, call the appropriate method in your game logic, like "playCard" or "myAction"
         $this->game->gameFinishTownCriersExpense( $arg1 );
 
-        self::ajaxResponse( );        
+        self::ajaxResponse();        
     }
 
     public function actionFinishProduceMagicalItem()

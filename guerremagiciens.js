@@ -120,8 +120,6 @@ function (dojo, declare) {
                 this.magical_items.addItemType( 0, 0, g_gamethemeurl+'img/talisman-toratsa.jpg' );
                 this.magical_items.addItemType( 1, 1, g_gamethemeurl+'img/talisman-xephis.jpg' );
                 this.magical_items.addItemType( 2, 2, g_gamethemeurl+'img/talisman-yaboul.jpg' );
-            
-                console.log(this.magical_items);
 
                 args.args.forEach(element => {
                     var step;
@@ -261,7 +259,6 @@ function (dojo, declare) {
 
             var selected_item = -1;
             if( this.fanatics_list.getSelectedItems().length >= 1 ){
-                console.log( this.fanatics_list.getSelectedItems()[0]['type'] );
                 selected_item = this.fanatics_list.getSelectedItems()[0]['type'];
             }
 
@@ -273,8 +270,6 @@ function (dojo, declare) {
         },   
 
         onFinishProduceMagicalItem: function( evt ){
-            console.log( evt );
-
             // Preventing default browser reaction
             dojo.stopEvent( evt );
 
@@ -283,8 +278,6 @@ function (dojo, declare) {
             {   console.log( 'FanaticsDominanceSetup not available' );
                 return; 
             }
-
-            console.log( this.magical_items.getSelectedItems() );
 
             var magical_items_ajax_params = '';
             this.magical_items.getSelectedItems().forEach(element => {
@@ -315,8 +308,6 @@ function (dojo, declare) {
         },
 
         onFinishTownCriersExpense: function( evt ){
-            console.log( evt );
-
             // Preventing default browser reaction
             dojo.stopEvent( evt );
 
@@ -330,17 +321,7 @@ function (dojo, declare) {
             { 
                 lock: true, 
                 intGlobalExpenseTotal: $( 'global_expense_total' ).innerHTML }, 
-                    this, function( result ) {
-                    
-                    // What to do after the server call if it succeeded
-                    // (most of the time: nothing)
-                    
-                    }, function( is_error) {
-
-                    // What to do after the server call in anyway (success or failure)
-                    // (most of the time: nothing)
-
-                    } );              
+                    this, function( result ) {}, function( is_error) {} );              
         },
         
         /* Example:
@@ -395,6 +376,7 @@ function (dojo, declare) {
             console.log( 'notifications subscriptions setup' );
             
             // TODO: here, associate your game notifications with local methods
+            dojo.subscribe( 'playerExpenseFinished', this, "notif_playerExpenseFinished" );
             
             // Example 1: standard notification handling
             // dojo.subscribe( 'cardPlayed', this, "notif_cardPlayed" );
@@ -408,10 +390,23 @@ function (dojo, declare) {
         },  
         
         // TODO: from this point and below, you can write your game notifications handling methods
-        
+        notif_playerExpenseFinished: function( notif )
+        {
+            console.log( 'notif_playerExpenseFinished' );
+            console.log( notif.args );
+
+            if( this.isCurrentPlayerActive() ){
+                $('coinscount_p'+this.player_id ).innerHTML = notif.args['player_money'];
+            }
+            
+            // Note: notif.args contains the arguments specified during you "notifyAllPlayers" / "notifyPlayer" PHP call
+            
+            // TODO: play the card in the user interface.
+        },  
+
         /*
         Example:
-        
+                
         notif_cardPlayed: function( notif )
         {
             console.log( 'notif_cardPlayed' );
