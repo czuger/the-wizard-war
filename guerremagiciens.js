@@ -117,14 +117,14 @@ function (dojo, declare) {
                 this.magical_items = new ebg.stock();
                 this.magical_items.create( this, $('stock-area'), 32, 32 );
 
-                this.magical_items.addItemType( 0, 0, g_gamethemeurl+'img/talisman-toratsa.jpg' );
-                this.magical_items.addItemType( 1, 1, g_gamethemeurl+'img/talisman-xephis.jpg' );
-                this.magical_items.addItemType( 2, 2, g_gamethemeurl+'img/talisman-yaboul.jpg' );
+                this.magical_items.addItemType( 10, 10, g_gamethemeurl+'img/talisman-toratsa.jpg' );
+                this.magical_items.addItemType( 11, 11, g_gamethemeurl+'img/talisman-xephis.jpg' );
+                this.magical_items.addItemType( 12, 12, g_gamethemeurl+'img/talisman-yaboul.jpg' );
 
-                args.args.forEach(element => {
+                Object.keys( args.args ).forEach(key => {
                     var step;
-                    for (step = 0; step <= parseInt(element.magical_items_amount); step++) {
-                        this.magical_items.addToStock( element.magical_item_code );
+                    for (step = 0; step <= args.args[key]; step++) {
+                        this.magical_items.addToStock( key );
                     }                    
                 });
 

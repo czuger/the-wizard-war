@@ -33,6 +33,10 @@ class GuerreMagiciens extends Table
         parent::__construct();
         
         self::initGameStateLabels( array( 
+            'toratsa' => $this -> wizard_to_code['toratsa'],
+            'xephis' => $this -> wizard_to_code['xephis'],
+            'yaboul' => $this -> wizard_to_code['yaboul']
+            //    "my_second_global_variable" => 11,
             //    "my_first_global_variable" => 10,
             //    "my_second_global_variable" => 11,
             //      ...
@@ -120,14 +124,9 @@ class GuerreMagiciens extends Table
         //
         // We create the magical items stock
         //
-        $sql = "INSERT INTO magical_items_in_stock VALUES ( 'toratsa', 20, 0 )";
-        self::DbQuery( $sql );
-
-        $sql = "INSERT INTO magical_items_in_stock VALUES ( 'xephis', 25, 1 )";
-        self::DbQuery( $sql );
-
-        $sql = "INSERT INTO magical_items_in_stock VALUES ( 'yaboul', 35, 2 )";
-        self::DbQuery( $sql );
+        self::setGameStateInitialValue( 'toratsa', 20 );
+        self::setGameStateInitialValue( 'xephis', 25 );
+        self::setGameStateInitialValue( 'yaboul', 35 );
 
         /************ Start the game initialization *****/
 
@@ -358,7 +357,9 @@ class GuerreMagiciens extends Table
     
         // return values:
         $sql = "SELECT * FROM `magical_items_in_stock` ORDER BY magical_item_code";
-        return self::getObjectListFromDB( $sql );
+        return [ $this -> wizard_to_code['toratsa'] => intval( self::getGameStateValue( 'toratsa' ) ), 
+            $this -> wizard_to_code['xephis'] => intval( self::getGameStateValue( 'xephis' ) ), 
+            $this -> wizard_to_code['yaboul'] => intval( self::getGameStateValue( 'yaboul' ) ) ];
     }    
 
     /*
