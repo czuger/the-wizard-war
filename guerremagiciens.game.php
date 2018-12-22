@@ -316,13 +316,17 @@ class GuerreMagiciens extends Table
             // Clear fanatics selected by users.
             $sql = "DELETE FROM fanatics WHERE in_hall=1";
             self::DbQuery( $sql );
+
+            $sql = "SELECT toratsa_in_stock, xephis_in_stock, yaboul_in_stock FROM player WHERE player_id=".$player_id;
+            $stocks = self::getObjectFromDB( $sql );
     
             $this->gamestate->nextState( 'FanaticsDominanceSetup' );
             
             // Notify all players about the card played
-            self::notifyAllPlayers( "cardPlayed", clienttranslate( '${player_name} has finished it\'s production' ), array(
+            self::notifyPlayer( $player_id, "playerProductionFinished", clienttranslate( '${player_name} has finished it\'s production' ), array(
                 'player_id' => $player_id,
-                'player_name' => self::getActivePlayerName()
+                'player_name' => self::getActivePlayerName(),
+                'stocks' => $stocks
             ) );
         }
     }   

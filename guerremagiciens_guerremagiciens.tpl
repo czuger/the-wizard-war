@@ -44,7 +44,7 @@ var jstpl_player_board = '\<div id="coins-frame">\
     <div id="laboratorycount_p${id}" class="laboratories-amount">${laboratories}</div>\
     <div id="laboratoryicon_p${id}" class="laboratory-icon"></div>\
 \
-    <div id="magical-item-toratsa-count_p${id}" class="laboratories-amount">${toratsa_in_stock}</div>\
+    <div id="magical-item-toratsa-count-p${id}" class="laboratories-amount">${toratsa_in_stock}</div>\
     <div id="magical-item-toratsa-icon-p${id}" class="magical-item-toratsa laboratory-icon"></div>\
 \
     <div id="magical-item-xephis-count-p${id}" class="laboratories-amount">${xephis_in_stock}</div>\

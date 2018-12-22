@@ -377,8 +377,9 @@ function (dojo, declare) {
             
             // TODO: here, associate your game notifications with local methods
             dojo.subscribe( 'playerExpenseFinished', this, "notif_playerExpenseFinished" );
-
             dojo.subscribe( 'tooMuchItemProduced', this, "notif_tooMuchItemProduced" );
+            dojo.subscribe( 'playerProductionFinished', this, "notif_playerProductionFinished" );
+
             // this.notifqueue.setSynchronous( 'tooMuchItemProduced', 3000 );
             
             // Example 1: standard notification handling
@@ -409,21 +410,18 @@ function (dojo, declare) {
 
         notif_playerProductionFinished: function( notif )
         {
-            console.log( 'notif_playerExpenseFinished' );
             console.log( notif.args );
+            
+            $('magical-item-toratsa-count-p'+this.player_id ).innerHTML = notif.args.stocks.toratsa_in_stock;
+            $('magical-item-xephis-count-p'+this.player_id ).innerHTML = notif.args.stocks.xephis_in_stock;
+            $('magical-item-yaboul-count-p'+this.player_id ).innerHTML = notif.args.stocks.yaboul_in_stock;
 
-            if( this.isCurrentPlayerActive() ){
-                $('coinscount_p'+this.player_id ).innerHTML = notif.args['player_money'];
-            }
-            
-            // Note: notif.args contains the arguments specified during you "notifyAllPlayers" / "notifyPlayer" PHP call
-            
-            // TODO: play the card in the user interface.
+            console.log( 'notif_playerProductionFinished' );
         },  
 
         notif_tooMuchItemProduced: function( notif )
         {
-            console.log( 'notif_playerExpenseFinished' );
+            console.log( 'notif_tooMuchItemProduced' );
             console.log( notif.args );
 
             this.showMessage( notif.args['error_message'], 'error' );
