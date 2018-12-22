@@ -164,7 +164,8 @@ class GuerreMagiciens extends Table
     
         // Get information about players
         // Note: you can retrieve some extra field you added for "player" table in "dbmodel.sql" if you need it.
-        $sql = "SELECT player_id id, player_score score, player_money money, laboratories FROM player ";
+        $sql = "SELECT player_id id, player_score score, player_money money, laboratories, 
+            toratsa_in_stock, xephis_in_stock, yaboul_in_stock FROM player";
   
         // TODO: Gather all information about current game situation (visible by player $current_player_id).
         $result['players'] = self::getCollectionFromDb( $sql );      

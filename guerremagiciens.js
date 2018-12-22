@@ -407,6 +407,20 @@ function (dojo, declare) {
             // TODO: play the card in the user interface.
         },  
 
+        notif_playerProductionFinished: function( notif )
+        {
+            console.log( 'notif_playerExpenseFinished' );
+            console.log( notif.args );
+
+            if( this.isCurrentPlayerActive() ){
+                $('coinscount_p'+this.player_id ).innerHTML = notif.args['player_money'];
+            }
+            
+            // Note: notif.args contains the arguments specified during you "notifyAllPlayers" / "notifyPlayer" PHP call
+            
+            // TODO: play the card in the user interface.
+        },  
+
         notif_tooMuchItemProduced: function( notif )
         {
             console.log( 'notif_playerExpenseFinished' );
