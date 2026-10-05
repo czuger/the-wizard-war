@@ -28,13 +28,4 @@ impl Fanatic {
             self.strength
         )
     }
-
-    /// Returns the image sprite index in `img/fanatics.jpg` (Yaboul 1–3 then Xéphis 1–3).
-    pub fn sprite_index(&self) -> i64 {
-        let cult_offset = match self.cult {
-            Cult::Yaboul => 0,
-            Cult::Xephis => 3,
-        };
-        cult_offset + self.strength - 1
-    }
 }

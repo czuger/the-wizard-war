@@ -28,7 +28,7 @@
       <h3>Stock</h3>
       <ul class="items">
         {% for line in self.stock_lines() %}
-        <li><img src="/img/talisman-{{ line.key }}.jpg" alt="" class="item-icon"> {{ line.label }} : {{ line.count }}</li>
+        <li><img src="{{ line.image }}" alt="" class="item-icon"> {{ line.label }} : {{ line.count }}</li>
         {% endfor %}
       </ul>
       <h3>Mes colporteurs et caravanes</h3>
@@ -43,7 +43,7 @@
       <ul class="fanatics">
         {% for record in view.my_fanatics %}
         <li class="{% if record.in_hall %}in-hall{% endif %}">
-          <span class="fanatic-token" style="background-position: 0 -{{ record.fanatic.sprite_index() * 23 }}px"></span>
+          <img src="{{ record.fanatic.image() }}" alt="" class="fanatic-token">
           {{ record.fanatic.label() }}{% if record.in_hall %} — dans la grande salle{% endif %}
         </li>
         {% else %}
@@ -80,7 +80,7 @@
       <h2>Réserve de la banque</h2>
       <ul class="items">
         {% for line in self.supply_lines() %}
-        <li><img src="/img/talisman-{{ line.key }}.jpg" alt="" class="item-icon"> {{ line.label }} : {{ line.count }}</li>
+        <li><img src="{{ line.image }}" alt="" class="item-icon"> {{ line.label }} : {{ line.count }}</li>
         {% endfor %}
       </ul>
     </section>

@@ -8,7 +8,7 @@
     {% for record in view.available_fanatics() %}
     <label class="choice">
       <input type="radio" name="fanatic" value="{{ record.id }}">
-      <span class="fanatic-token" style="background-position: 0 -{{ record.fanatic.sprite_index() * 23 }}px"></span>
+      <img src="{{ record.fanatic.image() }}" alt="" class="fanatic-token">
       {{ record.fanatic.label() }}
     </label>
     {% endfor %}
@@ -110,7 +110,7 @@
   <form method="post" action="{{ self.player_path() }}/production" class="stack">
     {% for line in self.supply_lines() %}
     <label class="choice">
-      <img src="/img/talisman-{{ line.key }}.jpg" alt="" class="item-icon">
+      <img src="{{ line.image }}" alt="" class="item-icon">
       {{ line.label }} (reste {{ line.count }})
       <input type="number" name="{{ line.key }}" value="0" min="0" max="{{ line.count }}">
     </label>
@@ -167,7 +167,7 @@
     {% for cargo in view.trade.cargo_options %}
     <label class="choice">
       <input type="radio" name="item" value="{{ cargo.key }}">
-      <img src="/img/talisman-{{ cargo.key }}.jpg" alt="" class="item-icon">
+      <img src="{{ cargo.image }}" alt="" class="item-icon">
       {{ cargo.label }} pour {{ cargo.city_price }} écus ({{ cargo.count }} en stock)
     </label>
     {% endfor %}

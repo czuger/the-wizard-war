@@ -41,12 +41,21 @@ impl MagicItem {
         }
     }
 
-    /// Returns a stable identifier used in form fields and image names.
+    /// Returns a stable identifier used in form fields.
     pub fn key(self) -> &'static str {
         match self {
             MagicItem::Toratsa => "toratsa",
             MagicItem::Xephis => "xephis",
             MagicItem::Yaboul => "yaboul",
+        }
+    }
+
+    /// Returns the path of the item's token image.
+    pub fn image(self) -> &'static str {
+        match self {
+            MagicItem::Toratsa => "/img/token-talisman-toratsa.png",
+            MagicItem::Xephis => "/img/token-grimoire-xephis.png",
+            MagicItem::Yaboul => "/img/token-pentacle-yaboul.png",
         }
     }
 

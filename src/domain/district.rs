@@ -64,12 +64,12 @@ impl District {
     /// Returns the centre of the district's houses, in pixels of `img/board.jpg`.
     pub fn board_position(self) -> (u16, u16) {
         match self {
-            District::Blue => (790, 520),
-            District::White => (890, 522),
-            District::Yellow => (750, 572),
-            District::Pink => (795, 635),
-            District::Black => (920, 590),
-            District::Green => (875, 637),
+            District::Blue => (2092, 1383),
+            District::White => (2356, 1387),
+            District::Yellow => (1985, 1521),
+            District::Pink => (2103, 1687),
+            District::Black => (2434, 1567),
+            District::Green => (2314, 1692),
         }
     }
 }

@@ -1,4 +1,4 @@
-//! The map of the county of Arghtal, transcribed from `img/board.jpg` (1055 × 867 pixels).
+//! The map of the county of Arghtal, transcribed from `img/board.jpg` (2780 × 2289 pixels).
 //!
 //! The city has one gate in front of each village of the outskirts (see [`GATE_VILLAGES`]).
 
@@ -7,13 +7,13 @@ use crate::domain::Zone::{Countryside, Mountain, Outskirts};
 use crate::domain::{Site, SiteId, SiteKind, Zone};
 
 /// Width of `img/board.jpg`, in pixels.
-pub const BOARD_WIDTH: u16 = 1055;
+pub const BOARD_WIDTH: u16 = 2780;
 
 /// Height of `img/board.jpg`, in pixels.
-pub const BOARD_HEIGHT: u16 = 867;
+pub const BOARD_HEIGHT: u16 = 2289;
 
 /// Centre of the great hall, in the middle of the city, in pixels of `img/board.jpg`.
-pub const HALL_POSITION: (u16, u16) = (839, 572);
+pub const HALL_POSITION: (u16, u16) = (2220, 1520);
 
 const fn site(
     id: u8,
@@ -36,66 +36,73 @@ const fn site(
 
 /// Every site of the map: 28 villages, 2 castles and 2 monasteries, ordered by id.
 pub static SITES: [Site; 32] = [
-    site(1, "Hautecombe", Village, Mountain, (175, 62), true),
-    site(2, "Roc-Brumeux", Village, Mountain, (398, 62), false),
-    site(3, "Bourg-du-Lac", Village, Mountain, (550, 88), false),
-    site(4, "Pierrefeu", Village, Mountain, (668, 40), true),
+    site(1, "Hautecombe", Village, Mountain, (461, 160), true),
+    site(2, "Roc-Brumeux", Village, Mountain, (1056, 159), false),
+    site(3, "Bourg-du-Lac", Village, Mountain, (1461, 228), false),
+    site(4, "Pierrefeu", Village, Mountain, (1777, 98), true),
     site(
         5,
         "Monastère des Cimes",
         Monastery,
         Mountain,
-        (925, 42),
+        (2462, 103),
         false,
     ),
-    site(6, "Combe-Noire", Village, Mountain, (118, 210), true),
-    site(7, "Pont-d'Argh", Village, Mountain, (90, 368), false),
-    site(8, "Gué-des-Saules", Village, Mountain, (82, 678), true),
-    site(9, "Port-Gris", Village, Mountain, (122, 790), false),
+    site(6, "Combe-Noire", Village, Mountain, (310, 559), true),
+    site(7, "Pont-d'Argh", Village, Mountain, (238, 982), false),
+    site(8, "Gué-des-Saules", Village, Mountain, (221, 1805), true),
+    site(9, "Port-Gris", Village, Mountain, (327, 2100), false),
     site(
         10,
         "Château de l'Oriflamme",
         Castle,
         Countryside,
-        (662, 150),
+        (1759, 395),
         false,
     ),
-    site(11, "Valbrune", Village, Countryside, (418, 252), false),
-    site(12, "Montrouge", Village, Countryside, (575, 215), false),
-    site(13, "Clairfontaine", Village, Countryside, (873, 147), false),
-    site(14, "Beaupré", Village, Countryside, (955, 188), false),
-    site(15, "Rochebelle", Village, Countryside, (1005, 283), false),
-    site(16, "Blémont", Village, Countryside, (668, 322), false),
-    site(17, "Ormeval", Village, Countryside, (300, 337), false),
-    site(18, "Sauvigny", Village, Countryside, (532, 380), false),
-    site(19, "Fougerolles", Village, Countryside, (250, 432), false),
-    site(20, "Champtier", Village, Countryside, (466, 485), false),
+    site(11, "Valbrune", Village, Countryside, (1109, 670), false),
+    site(12, "Montrouge", Village, Countryside, (1527, 570), false),
+    site(
+        13,
+        "Clairfontaine",
+        Village,
+        Countryside,
+        (2321, 386),
+        false,
+    ),
+    site(14, "Beaupré", Village, Countryside, (2537, 496), false),
+    site(15, "Rochebelle", Village, Countryside, (2667, 750), false),
+    site(16, "Blémont", Village, Countryside, (1772, 856), false),
+    site(17, "Ormeval", Village, Countryside, (795, 898), false),
+    site(18, "Sauvigny", Village, Countryside, (1411, 1012), false),
+    site(19, "Fougerolles", Village, Countryside, (663, 1152), false),
+    site(20, "Champtier", Village, Countryside, (1235, 1292), false),
     site(
         21,
         "Château de Bleuvent",
         Castle,
         Countryside,
-        (350, 520),
+        (928, 1385),
         false,
     ),
-    site(22, "Marbois", Village, Countryside, (213, 575), false),
-    site(23, "Vauclair", Village, Countryside, (345, 600), false),
-    site(24, "Lormel", Village, Countryside, (410, 660), false),
-    site(25, "Brumeval", Village, Countryside, (245, 745), false),
+    site(22, "Marbois", Village, Countryside, (566, 1532), false),
+    site(23, "Vauclair", Village, Countryside, (915, 1597), false),
+    site(24, "Lormel", Village, Countryside, (1087, 1756), false),
+    site(25, "Brumeval", Village, Countryside, (651, 1981), false),
     site(
         26,
         "Monastère de la Colline",
         Monastery,
         Countryside,
-        (358, 738),
+        (949, 1962),
         false,
     ),
-    site(27, "Vignelles", Village, Outskirts, (825, 365), false),
-    site(28, "Les Granges", Village, Outskirts, (642, 455), false),
-    site(29, "Bois-Joli", Village, Outskirts, (1015, 462), false),
-    site(30, "Moulinet", Village, Outskirts, (573, 662), false),
-    site(31, "Les Tanneries", Village, Outskirts, (630, 780), false),
-    site(32, "La Falaise", Village, Outskirts, (957, 775), false),
+    site(27, "Vignelles", Village, Outskirts, (2188, 970), false),
+    site(28, "Les Granges", Village, Outskirts, (1702, 1211), false),
+    site(29, "Bois-Joli", Village, Outskirts, (2688, 1227), false),
+    site(30, "Moulinet", Village, Outskirts, (1517, 1760), false),
+    site(31, "Les Tanneries", Village, Outskirts, (1666, 2070), false),
+    site(32, "La Falaise", Village, Outskirts, (2526, 2055), false),
 ];
 
 /// Paths joining two sites, each listed once.

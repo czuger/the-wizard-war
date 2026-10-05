@@ -5,8 +5,10 @@ use crate::service::GameView;
 
 /// One kind of magic item with a count, as shown on the page.
 pub struct ItemLine {
-    /// Identifier used in form fields and image names.
+    /// Identifier used in form fields.
     pub key: &'static str,
+    /// Path of the item's token image.
+    pub image: &'static str,
     /// French name.
     pub label: &'static str,
     /// Number of items.
@@ -34,6 +36,7 @@ impl GamePage {
             .iter()
             .map(|&item| ItemLine {
                 key: item.key(),
+                image: item.image(),
                 label: item.label(),
                 count: counts.get(item),
             })

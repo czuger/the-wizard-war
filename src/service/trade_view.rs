@@ -58,6 +58,8 @@ pub struct MoveChoice {
 pub struct CargoOption {
     /// Form value, from [`MagicItem::key`].
     pub key: &'static str,
+    /// Path of the item's token image.
+    pub image: &'static str,
     /// French name.
     pub label: &'static str,
     /// Number of items in stock.
@@ -271,6 +273,7 @@ fn cargo_options(me: &PlayerRecord) -> Vec<CargoOption> {
         .filter(|&item| me.stock.get(item) > 0)
         .map(|item| CargoOption {
             key: item.key(),
+            image: item.image(),
             label: item.label(),
             count: me.stock.get(item),
             city_price: city_price(item),
