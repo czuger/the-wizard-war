@@ -1,7 +1,7 @@
 use crate::db::RebelRecord;
 use crate::domain::board::{BOARD_HEIGHT, BOARD_WIDTH, SITES, paths, site_by_id};
 use crate::domain::rebel_movement::village_destinations;
-use crate::domain::{BoardState, Conversion, Cult, CultMarker, Site, SiteId};
+use crate::domain::{BoardState, Cult, CultMarker, Location, Site, SiteId};
 use crate::service::city_view::percent;
 use crate::service::trade_view::PawnToken;
 
@@ -10,12 +10,18 @@ use crate::service::trade_view::PawnToken;
 pub struct SiteView {
     /// Number shown on the map.
     pub id: u8,
+    /// Name of the site.
+    pub name: &'static str,
     /// The site's name, kind and zone, shown on hover.
     pub title: String,
     /// Horizontal position, in percent of the map's width.
     pub left: String,
     /// Vertical position, in percent of the map's height.
     pub top: String,
+    /// Horizontal position, in pixels of `img/board.jpg`, for the move arrows.
+    pub x: u16,
+    /// Vertical position, in pixels of `img/board.jpg`.
+    pub y: u16,
     /// The marker on the site, if any.
     pub marker: Option<CultMarker>,
     /// Number of rebels pawns on the site.
@@ -75,19 +81,12 @@ pub struct PathView {
 /// One conversion the viewing player may choose.
 #[derive(Debug, Clone)]
 pub struct ConversionOption {
-    /// Form value, decoded by [`Conversion::from_form_value`].
+    /// Id of the site converted, where the option is offered on the map.
+    pub site: u8,
+    /// Form value, decoded by [`crate::domain::Conversion::from_form_value`].
     pub value: String,
     /// French description.
     pub label: String,
-}
-
-/// The conversions of one kind (place, flip or replace).
-#[derive(Debug, Clone)]
-pub struct ConversionGroup {
-    /// French title of the kind.
-    pub label: &'static str,
-    /// The conversions of this kind, by site.
-    pub options: Vec<ConversionOption>,
 }
 
 /// A village a rebels pawn may move to.
@@ -104,10 +103,23 @@ pub struct DestinationOption {
 pub struct RebelChoice {
     /// Id of the pawn, used in the form field name.
     pub rebel_id: i64,
+    /// Id of the village the pawn stands on.
+    pub from_site: u8,
     /// Name of the village the pawn stands on.
     pub from: &'static str,
     /// Where it may go.
     pub destinations: Vec<DestinationOption>,
+}
+
+impl RebelChoice {
+    /// Ids of the destinations, separated by spaces, for the map script.
+    pub fn targets(&self) -> String {
+        self.destinations
+            .iter()
+            .map(|destination| destination.site.to_string())
+            .collect::<Vec<_>>()
+            .join(" ")
+    }
 }
 
 /// The map as everyone sees it, plus the viewing player's phase II choices.
@@ -117,8 +129,9 @@ pub struct BoardView {
     pub sites: Vec<SiteView>,
     /// Every path.
     pub paths: Vec<PathView>,
-    /// Conversions the viewing player may choose; empty unless it is their turn to convert.
-    pub conversion_groups: Vec<ConversionGroup>,
+    /// Conversions the viewing player may choose, by site then kind; empty unless it is
+    /// their turn to convert.
+    pub conversions: Vec<ConversionOption>,
     /// Pawns the viewing player must move; empty unless it is their turn to move rebels.
     pub rebel_choices: Vec<RebelChoice>,
 }
@@ -129,7 +142,7 @@ impl BoardView {
     /// # Arguments
     /// * `conversion_turn` - the current turn when the viewer must convert, else `None`.
     /// * `must_move_rebels` - whether the viewer must move the rebels.
-    /// * `tokens` - the peddlers and caravans on the map.
+    /// * `tokens` - the peddlers and caravans; those in the city are left out.
     pub fn build(
         state: &BoardState,
         rebels: &[RebelRecord],
@@ -143,8 +156,8 @@ impl BoardView {
                 .map(|site| site_view(state, site, tokens))
                 .collect(),
             paths: paths().filter_map(|(a, b)| path_view(a, b)).collect(),
-            conversion_groups: conversion_turn
-                .map(|turn| conversion_groups(state, turn))
+            conversions: conversion_turn
+                .map(|turn| conversions(state, turn))
                 .unwrap_or_default(),
             rebel_choices: if must_move_rebels {
                 rebel_choices(rebels)
@@ -160,14 +173,17 @@ fn site_view(state: &BoardState, site: &Site, tokens: &[PawnToken]) -> SiteView 
     let marker_text = marker.map_or("aucun marqueur".to_string(), CultMarker::describe);
     SiteView {
         id: site.id.0,
+        name: site.name,
         title: format!("{}. {} — {marker_text}", site.id.0, site.describe()),
         left: percent(site.x, BOARD_WIDTH),
         top: percent(site.y, BOARD_HEIGHT),
+        x: site.x,
+        y: site.y,
         marker,
         rebels: state.rebels_on(site.id),
         pawns: tokens
             .iter()
-            .filter(|token| token.site == site.id)
+            .filter(|token| token.location == Location::Site(site.id))
             .cloned()
             .collect(),
     }
@@ -183,37 +199,16 @@ fn path_view(a: SiteId, b: SiteId) -> Option<PathView> {
     })
 }
 
-fn conversion_groups(state: &BoardState, turn: i64) -> Vec<ConversionGroup> {
-    let legal = state.legal_conversions(turn);
-    let group = |label: &'static str, keep: fn(&Conversion) -> bool| ConversionGroup {
-        label,
-        options: legal
-            .iter()
-            .filter(|conversion| keep(conversion))
-            .map(|conversion| ConversionOption {
-                value: conversion.form_value(),
-                label: format!(
-                    "{}. {}",
-                    conversion.site().0,
-                    conversion.label(state.marker(conversion.site()))
-                ),
-            })
-            .collect(),
-    };
-    [
-        group("Placer un marqueur", |c| {
-            matches!(c, Conversion::Place { .. })
-        }),
-        group("Retourner un marqueur", |c| {
-            matches!(c, Conversion::Flip { .. })
-        }),
-        group("Remplacer un marqueur caché", |c| {
-            matches!(c, Conversion::Replace { .. })
-        }),
-    ]
-    .into_iter()
-    .filter(|group| !group.options.is_empty())
-    .collect()
+fn conversions(state: &BoardState, turn: i64) -> Vec<ConversionOption> {
+    state
+        .legal_conversions(turn)
+        .iter()
+        .map(|conversion| ConversionOption {
+            site: conversion.site().0,
+            value: conversion.form_value(),
+            label: conversion.label(state.marker(conversion.site())),
+        })
+        .collect()
 }
 
 fn rebel_choices(rebels: &[RebelRecord]) -> Vec<RebelChoice> {
@@ -230,6 +225,7 @@ fn rebel_choices(rebels: &[RebelRecord]) -> Vec<RebelChoice> {
                 .collect();
             (!destinations.is_empty()).then(|| RebelChoice {
                 rebel_id: rebel.id,
+                from_site: rebel.site.0,
                 from: site_by_id(rebel.site).map_or("?", |site| site.name),
                 destinations,
             })

@@ -1,0 +1,7 @@
+<ul class="items">
+  {% for pawn in view.trade.my_pawns %}
+  <li><img src="{{ pawn.image }}" alt="" class="pawn-icon"> {{ pawn.label }}</li>
+  {% else %}
+  <li>Aucun. Achetez-en en phase VII.</li>
+  {% endfor %}
+</ul>

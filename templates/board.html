@@ -1,5 +1,4 @@
-<section class="panel">
-  <h2>Le comté d'Arghtal</h2>
+<section class="panel board-panel">
   <div class="board-viewport">
   <div class="board">
     <img src="/img/board.jpg" alt="Carte du comté d'Arghtal et de la cité d'Argh" width="2780" height="2289">
@@ -8,18 +7,18 @@
       <line x1="{{ path.x1 }}" y1="{{ path.y1 }}" x2="{{ path.x2 }}" y2="{{ path.y2 }}"></line>
       {% endfor %}
     </svg>
-    {% for site in view.board.sites %}
-    <span class="site" style="left: {{ site.left }}%; top: {{ site.top }}%" title="{{ site.title }}">
-      {% if let Some(image) = site.marker_image() %}<img src="{{ image }}" alt="" class="marker-token">{% endif %}
-      <span class="site-number {{ site.marker_class() }}">{{ site.id }}</span>
-      {% if site.rebels > 0 %}<span class="site-rebels" title="Rebelles : {{ site.rebels }}"><img src="/img/token-rebels.png" alt="Rebelles" class="rebel-token">{% if site.rebels > 1 %}<span class="rebel-count">×{{ site.rebels }}</span>{% endif %}</span>{% endif %}
-      {% if !site.pawns.is_empty() %}<span class="site-pawns">{% for pawn in site.pawns %}<img src="{{ pawn.image }}" alt="{{ pawn.title }}" title="{{ pawn.title }}">{% endfor %}</span>{% endif %}
-    </span>
-    {% endfor %}
+    <svg class="board-moves" viewBox="0 0 2780 2289" preserveAspectRatio="none" aria-hidden="true">
+      <defs>
+        <marker id="move-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z"></path>
+        </marker>
+      </defs>
+    </svg>
     {% for district in view.city.districts %}
-    {% if district.laboratories > 0 %}
-    <span class="district-labs" style="left: {{ district.left }}%; top: {{ district.top }}%" title="{{ district.title }}">
+    {% if district.laboratories > 0 || !district.pawns.is_empty() || district.is_mine %}
+    <span class="district-labs{% if district.is_mine %} mine{% endif %}" style="left: {{ district.left }}%; top: {{ district.top }}%" title="{{ district.title }}"{% if district.is_mine %} data-target="city" data-x="{{ district.x }}" data-y="{{ district.y }}"{% endif %}>
       {% for index in 0..district.laboratories %}<img src="/img/token-laboratory.png" alt="Laboratoire {{ index + 1 }}">{% endfor %}
+      {% if !district.pawns.is_empty() %}<span class="district-pawns">{% for pawn in district.pawns %}{% include "partials/board_pawn.html" %}{% endfor %}</span>{% endif %}
     </span>
     {% endif %}
     {% endfor %}
@@ -28,6 +27,34 @@
       {% for token in view.city.hall %}<img src="{{ token.image }}" alt="{{ token.title }}" title="{{ token.title }}">{% endfor %}
     </span>
     {% endif %}
+    {% for site in view.board.sites %}
+    {% let conversions = self.conversions_at(site.id) %}
+    {% if !conversions.is_empty() %}
+    <details class="site site-menu" style="left: {{ site.left }}%; top: {{ site.top }}%" data-target="{{ site.id }}" data-x="{{ site.x }}" data-y="{{ site.y }}">
+      <summary title="{{ site.title }}">{% include "partials/site_face.html" %}</summary>
+      <div class="menu">
+        <p class="menu-title">{{ site.id }}. {{ site.name }}</p>
+        {% for option in conversions %}
+        <button type="submit" form="phase-form" name="conversion" value="{{ option.value }}">{{ option.label }}</button>
+        {% endfor %}
+      </div>
+    </details>
+    {% else if let Some(fight) = self.fight_at(site.id) %}
+    <details class="site site-menu" open style="left: {{ site.left }}%; top: {{ site.top }}%" data-target="{{ site.id }}" data-x="{{ site.x }}" data-y="{{ site.y }}">
+      <summary title="{{ site.title }}">{% include "partials/site_face.html" %}</summary>
+      <div class="menu">
+        <p class="menu-title">Les rebelles attaquent à {{ fight.site }} :</p>
+        {% for target in fight.targets %}
+        <button type="submit" form="phase-form" name="pawn" value="{{ target.pawn_id }}">{{ target.label }}</button>
+        {% endfor %}
+      </div>
+    </details>
+    {% else %}
+    <span class="site" style="left: {{ site.left }}%; top: {{ site.top }}%" title="{{ site.title }}" data-target="{{ site.id }}" data-x="{{ site.x }}" data-y="{{ site.y }}">
+      {% include "partials/site_face.html" %}
+    </span>
+    {% endif %}
+    {% endfor %}
   </div>
   </div>
   <p class="hint board-legend">
@@ -37,8 +64,8 @@
     <img src="/img/token-cult-hidden.png" alt="" class="pawn-icon"> face cachée (numéro à la couleur du culte)
     <img src="/img/token-rebels.png" alt="" class="pawn-icon"> rebelles,
     <img src="/img/token-peddler-white.png" alt="" class="pawn-icon"> colporteurs et caravanes,
-    <img src="/img/token-laboratory.png" alt="" class="pawn-icon"> laboratoires (dans le quartier de leur alchimiste),
-    <img src="/img/token-fanatic-hidden.png" alt="" class="fanatic-icon"> fanatiques dans la grande salle (révélés en phase IV).
+    <img src="/img/token-laboratory.png" alt="" class="pawn-icon"> laboratoires et pions en ville (dans le quartier de leur alchimiste),
+    <img src="/img/token-fanatic-hidden.png" alt="" class="fanatic-icon"> fanatiques dans la grande salle.
     La cité a une porte devant chaque village des faubourgs (27 à 32). Survolez un lieu pour voir son nom.
   </p>
 </section>

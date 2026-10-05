@@ -1,0 +1,20 @@
+<h2>Colporteurs et caravanes</h2>
+<p>Un colporteur avance d'un lieu, une caravane d'un ou deux, le long des chemins. Cliquez sur un de vos
+   pions cerclés, puis sur sa destination. Pour quitter la ville (vos pions attendent dans votre quartier),
+   un pion prend un objet de votre stock et passe par une porte ; il rentre dès qu'il atteint une porte :
+   cliquez alors sur votre quartier. Un pion qui s'arrête sur des rebelles les combat. Les pions que vous
+   ne déplacez pas restent sur place.</p>
+<form id="phase-form" method="post" action="{{ self.player_path() }}/pawns" class="inline-form">
+  <span class="move-counter" data-move-counter></span>
+  <button type="button" class="secondary" data-reset-moves>Tout annuler</button>
+  <button type="submit">Valider les déplacements</button>
+</form>
+<div id="cargo-palette" hidden>
+  {% for cargo in view.trade.cargo_options %}
+  <span data-item="{{ cargo.key }}" data-count="{{ cargo.count }}" data-label="{{ cargo.label }}" data-image="{{ cargo.image }}"></span>
+  {% endfor %}
+</div>
+<details class="my-pawns">
+  <summary>Mes colporteurs et caravanes</summary>
+  {% include "partials/my_pawns.html" %}
+</details>

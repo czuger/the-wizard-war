@@ -1,0 +1,8 @@
+<h2>Ventes hors les murs</h2>
+<p>Un lieu n'achète que les objets du culte de son marqueur face visible, et un seul objet par tour,
+   sauf les monastères. Les châteaux achètent aussi les talismans Toratsa. Vos pions qui peuvent vendre
+   portent une pièce : cliquez dessus pour cocher ou décocher la vente, puis validez.</p>
+<form id="phase-form" method="post" action="{{ self.player_path() }}/sales" class="inline-form">
+  <span>{{ view.trade.sale_choices.len() }} vente(s) possible(s).</span>
+  <button type="submit">Valider les ventes</button>
+</form>

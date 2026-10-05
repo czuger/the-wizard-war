@@ -11,15 +11,27 @@ use crate::service::pawn_rules::{is_movable, sale_offer};
 use crate::service::purchases::holdings_of;
 use crate::service::rebel_fights::pending_fight;
 
-/// A peddler or caravan drawn on a site of the map; its item stays hidden.
+/// A peddler or caravan drawn on the map, on its site or in its owner's district; its item
+/// stays hidden.
 #[derive(Debug, Clone)]
 pub struct PawnToken {
-    /// Site the pawn stands on.
-    pub site: SiteId,
+    /// Id of the pawn, used to find the viewing player's choices for it.
+    pub pawn_id: i64,
+    /// Id of the pawn's owner.
+    pub owner_id: i64,
+    /// Where the pawn stands.
+    pub location: Location,
     /// Path of the pawn's image, in its owner's colour.
     pub image: String,
     /// French description shown on hover, e.g. « Caravane de Morgane ».
     pub title: String,
+}
+
+impl PawnToken {
+    /// Form value of the pawn's location, where the map script starts its move arrow.
+    pub fn from_value(&self) -> String {
+        self.location.form_value()
+    }
 }
 
 /// One of the viewing player's pawns.
@@ -51,6 +63,17 @@ pub struct MoveChoice {
     pub in_city: bool,
     /// Where it may go.
     pub destinations: Vec<StopOption>,
+}
+
+impl MoveChoice {
+    /// Form values of the destinations, separated by spaces, for the map script.
+    pub fn targets(&self) -> String {
+        self.destinations
+            .iter()
+            .map(|stop| stop.value.as_str())
+            .collect::<Vec<_>>()
+            .join(" ")
+    }
 }
 
 /// An item of the viewing player's stock.
@@ -91,6 +114,8 @@ pub struct FightTarget {
 /// The fight the viewing player must settle as first player.
 #[derive(Debug, Clone)]
 pub struct FightView {
+    /// Id of the village where the rebels arrived.
+    pub site_id: u8,
     /// Name of the village where the rebels arrived.
     pub site: &'static str,
     /// The pawns there.
@@ -113,7 +138,7 @@ pub struct PurchaseView {
 /// Peddlers, caravans, fights and sales as the viewing player sees them.
 #[derive(Debug, Clone, Default)]
 pub struct TradeView {
-    /// Every pawn on the map, items hidden.
+    /// Every pawn, on the map or in the city, items hidden.
     pub tokens: Vec<PawnToken>,
     /// The viewing player's pawns.
     pub my_pawns: Vec<PawnView>,
@@ -204,18 +229,19 @@ fn location_name(location: Location) -> String {
 fn tokens(pawns: &[PawnRecord], players: &[PlayerRecord]) -> Vec<PawnToken> {
     pawns
         .iter()
-        .filter_map(|pawn| {
-            let site = pawn.location.site()?;
+        .map(|pawn| {
             let owner = players.iter().find(|player| player.id == pawn.player_id);
-            Some(PawnToken {
-                site,
+            PawnToken {
+                pawn_id: pawn.id,
+                owner_id: pawn.player_id,
+                location: pawn.location,
                 image: token_image(pawn.kind, owner),
                 title: format!(
                     "{} de {}",
                     capitalised(pawn.kind.label()),
                     owner.map_or("?", |owner| owner.name.as_str())
                 ),
-            })
+            }
         })
         .collect()
 }
@@ -330,6 +356,7 @@ async fn pending_fight_view(
         })
         .collect();
     Ok(Some(FightView {
+        site_id: pending.rebel.site.0,
         site: site_by_id(pending.rebel.site).map_or("?", |site| site.name),
         targets,
     }))

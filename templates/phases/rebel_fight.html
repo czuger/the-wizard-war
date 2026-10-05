@@ -1,0 +1,7 @@
+{% if let Some(fight) = view.trade.fight %}
+<h2>Combat des rebelles</h2>
+<p>Des rebelles arrivent à {{ fight.site }}. Vous jouez en premier : choisissez sur la carte le pion
+   qu'ils attaquent, même s'il vous appartient. Le dé décide : 1–2 la bagarre se calme, 3–4 le pion perd
+   son objet (ou s'arrête un tour s'il est vide), 5–6 le pion est éliminé. Les rebelles quittent ensuite le jeu.</p>
+<form id="phase-form" method="post" action="{{ self.player_path() }}/fight"></form>
+{% endif %}

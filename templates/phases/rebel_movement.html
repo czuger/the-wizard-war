@@ -1,0 +1,9 @@
+<h2>Déplacement des rebelles</h2>
+<p>Vous jouez en premier ce tour-ci : chaque pion rebelle avance d'un village le long d'un chemin.
+   Les châteaux et les monastères les arrêtent. Cliquez sur un pion rebelle cerclé, puis sur le village
+   où il va ; cliquez de nouveau sur un pion déjà déplacé pour annuler son déplacement.</p>
+<form id="phase-form" method="post" action="{{ self.player_path() }}/rebels" class="inline-form" data-require-all>
+  <span class="move-counter" data-move-counter></span>
+  <button type="button" class="secondary" data-reset-moves>Tout annuler</button>
+  <button type="submit">Valider les déplacements</button>
+</form>

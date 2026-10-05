@@ -5,87 +5,28 @@
 {% block content %}
 <div class="game-layout">
 <div class="game-main">
-<section class="panel status-bar">
-  <h1>{{ view.phase.label() }}</h1>
-  {% if !view.is_finished() %}<p>Tour {{ view.turn }} / {{ view.max_turns }}</p>{% endif %}
-</section>
+{% include "partials/banner.html" %}
 
 {% if let Some(error) = error %}<p class="error panel">{{ error }}</p>{% endif %}
 
-{% include "board.html" %}
+<section class="panel phase-screen">
+{% match screen %}
+{% when Screen::Announcement %}{% include "phases/announcement.html" %}
+{% when Screen::Expense %}{% include "phases/expense.html" %}
+{% when Screen::Conversion %}{% include "phases/conversion.html" %}
+{% when Screen::RebelMovement %}{% include "phases/rebel_movement.html" %}
+{% when Screen::RebelFight %}{% include "phases/rebel_fight.html" %}
+{% when Screen::Production %}{% include "phases/production.html" %}
+{% when Screen::PawnMoves %}{% include "phases/pawn_moves.html" %}
+{% when Screen::Sales %}{% include "phases/sales.html" %}
+{% when Screen::CitySale %}{% include "phases/city_sale.html" %}
+{% when Screen::Purchase %}{% include "phases/purchase.html" %}
+{% when Screen::Waiting %}{% include "phases/waiting.html" %}
+{% when Screen::Finished %}{% include "phases/finished.html" %}
+{% endmatch %}
+</section>
 
-<div class="layout">
-  <div class="column">
-    {% include "game_action.html" %}
-
-    <section class="panel">
-      <h2>Mon laboratoire — {{ view.me.name }}</h2>
-      <p class="resources">
-        <span class="coin-icon"></span> {{ view.me.money }} écus
-        <span class="laboratory-icon"></span> {{ view.me.laboratories }} laboratoire(s)
-      </p>
-      <p class="hint">Laboratoires dans le {{ self.my_district() }}.</p>
-      <h3>Stock</h3>
-      <ul class="items">
-        {% for line in self.stock_lines() %}
-        <li><img src="{{ line.image }}" alt="" class="item-icon"> {{ line.label }} : {{ line.count }}</li>
-        {% endfor %}
-      </ul>
-      <h3>Mes colporteurs et caravanes</h3>
-      <ul class="items">
-        {% for pawn in view.trade.my_pawns %}
-        <li><img src="{{ pawn.image }}" alt="" class="pawn-icon"> {{ pawn.label }}</li>
-        {% else %}
-        <li>Aucun. Achetez-en en phase VII.</li>
-        {% endfor %}
-      </ul>
-      <h3>Mes fanatiques</h3>
-      <ul class="fanatics">
-        {% for record in view.my_fanatics %}
-        <li class="{% if record.in_hall %}in-hall{% endif %}">
-          <img src="{{ record.fanatic.image() }}" alt="" class="fanatic-token">
-          {{ record.fanatic.label() }}{% if record.in_hall %} — dans la grande salle{% endif %}
-        </li>
-        {% else %}
-        <li>Aucun fanatique.</li>
-        {% endfor %}
-      </ul>
-    </section>
-  </div>
-
-  <div class="column">
-    <section class="panel">
-      <h2>Alchimistes</h2>
-      <table class="players">
-        <thead><tr><th>Nom</th><th>Écus</th><th>Labos</th><th>Stock</th><th></th></tr></thead>
-        <tbody>
-          {% for player in view.players %}
-          <tr class="{% if player.is_me %}me{% endif %}">
-            <td>{% if player.is_first %}★ {% endif %}{{ player.name }}{% if player.is_ai %} <span class="hint">(ordinateur)</span>{% endif %}</td>
-            {% match player.money %}
-            {% when Some with (money) %}<td>{{ money }}</td>
-            {% when None %}<td class="wealth" title="{{ player.wealth.label() }}">{% for _ in 0..player.wealth.coins() %}<span class="coin-icon"></span>{% endfor %}</td>
-            {% endmatch %}
-            <td>{{ player.laboratories }}</td>
-            <td>{{ player.stock_total }}</td>
-            <td class="status">{{ player.status }}</td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-      <p class="hint">★ premier joueur du tour. Fanatiques dans la grande salle : {{ view.hall_count }}.</p>
-    </section>
-
-    <section class="panel">
-      <h2>Réserve de la banque</h2>
-      <ul class="items">
-        {% for line in self.supply_lines() %}
-        <li><img src="{{ line.image }}" alt="" class="item-icon"> {{ line.label }} : {{ line.count }}</li>
-        {% endfor %}
-      </ul>
-    </section>
-  </div>
-</div>
+{% if self.shows_map() %}{% include "board.html" %}{% endif %}
 </div>
 
 <aside class="panel log-panel">
@@ -98,4 +39,7 @@
 </aside>
 </div>
 {% endblock %}
-{% block scripts %}<script src="/static/poll.js"></script>{% endblock %}
+{% block scripts %}
+<script src="/static/poll.js"></script>
+{% if self.shows_map() %}<script src="/static/board.js"></script>{% endif %}
+{% endblock %}

@@ -1,0 +1,28 @@
+<section class="panel banner">
+  <div class="banner-phase">
+    <h1>{{ view.phase.label() }}</h1>
+    {% if !view.is_finished() %}<span class="hint">Tour {{ view.turn }} / {{ view.max_turns }}</span>{% endif %}
+  </div>
+  <div class="banner-me" title="{{ view.me.name }}, laboratoires dans le {{ self.my_district() }}">
+    <span class="resource"><span class="coin-icon"></span> {{ view.me.money }} écus</span>
+    <span class="resource"><span class="laboratory-icon"></span> {{ view.me.laboratories }}</span>
+    {% for line in self.stock_lines() %}
+    <span class="resource" title="{{ line.label }} en stock"><img src="{{ line.image }}" alt="{{ line.label }}" class="resource-icon"> {{ line.count }}</span>
+    {% endfor %}
+  </div>
+  <ul class="banner-players">
+    {% for player in view.players %}
+    <li class="player-chip district-{{ player.district_key }}{% if player.is_me %} me{% endif %}" title="{{ player.name }} — {{ player.district }}{% if player.is_ai %} (ordinateur){% endif %}">
+      <span class="chip-name">{% if player.is_first %}★ {% endif %}{{ player.name }}</span>
+      <span class="chip-stats">
+        {% match player.money %}
+        {% when Some with (money) %}{{ money }} écus
+        {% when None %}<span class="wealth" title="{{ player.wealth.label() }}">{% for _ in 0..player.wealth.coins() %}<span class="coin-icon"></span>{% endfor %}</span>
+        {% endmatch %}
+        · {{ player.laboratories }} labo(s) · {{ player.stock_total }} objet(s)
+      </span>
+      {% if !player.status.is_empty() %}<span class="chip-status">{{ player.status }}</span>{% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+</section>

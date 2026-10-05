@@ -1,0 +1,33 @@
+{% if let Some(purchase) = view.trade.purchase %}
+<h2>Achats</h2>
+<p>Vous avez {{ purchase.holdings.money }} écus, {{ purchase.holdings.peddlers }} colporteur(s) sur 4
+   et {{ purchase.holdings.caravans }} caravane(s) sur 3. Il reste {{ purchase.holdings.laboratories_left }} laboratoire(s) à vendre.</p>
+<div class="purchase-layout">
+  <form method="post" action="{{ self.player_path() }}/purchase" class="stack">
+    <label>Colporteurs à {{ purchase.peddler_price }} écus
+      <input type="number" name="peddlers" value="0" min="0" max="4">
+    </label>
+    <label>Caravanes à {{ purchase.caravan_price }} écus
+      <input type="number" name="caravans" value="0" min="0" max="3">
+    </label>
+    <label>Laboratoires à {{ purchase.laboratory_price }} écus
+      <input type="number" name="laboratories" value="0" min="0" max="{{ purchase.holdings.laboratories_left }}">
+    </label>
+    {% if purchase.holdings.bank_open %}
+    <label>Revendre des colporteurs en ville ({{ purchase.holdings.peddlers_in_city }}) à moitié prix
+      <input type="number" name="sold_peddlers" value="0" min="0" max="{{ purchase.holdings.peddlers_in_city }}">
+    </label>
+    <label>Revendre des caravanes en ville ({{ purchase.holdings.caravans_in_city }}) à moitié prix
+      <input type="number" name="sold_caravans" value="0" min="0" max="{{ purchase.holdings.caravans_in_city }}">
+    </label>
+    {% else %}
+    <p class="hint">La banque ne rachète plus de pions pendant les deux derniers tours.</p>
+    {% endif %}
+    <button type="submit">Acheter</button>
+  </form>
+  <div>
+    <h3>Mes colporteurs et caravanes</h3>
+    {% include "partials/my_pawns.html" %}
+  </div>
+</div>
+{% endif %}

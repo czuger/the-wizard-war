@@ -1,0 +1,33 @@
+<h2>Dépense collective</h2>
+<p>Glissez secrètement des écus dans l'enveloppe. Le total de tous les alchimistes décide du nombre
+   d'objets que la ville achètera en phase VI. Vous avez {{ view.me.money }} écus.</p>
+<form method="post" action="{{ self.player_path() }}/expense" class="inline-form">
+  <label>Montant (multiple de 100 écus)
+    <input type="number" name="amount" value="0" min="0" max="{{ view.me.money }}" step="100">
+  </label>
+  <button type="submit">Payer</button>
+</form>
+<table class="quota">
+  <caption>Objets achetés par la ville ({{ view.total_laboratories() }} laboratoires sur le plateau)</caption>
+  <thead>
+    <tr>
+      <th>Laboratoires \ Dépense</th>
+      <th>moins de 700</th>
+      <th>700 à 1 999</th>
+      <th>2 000 à 3 999</th>
+      <th>4 000 à 5 999</th>
+      <th>6 000 à 7 999</th>
+      <th>8 000 et plus</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for row in view.city_quota_rows() %}
+    <tr{% if row.current %} class="current"{% endif %}>
+      <th>{{ row.first }} à {{ row.last }}</th>
+      {% for quota in row.quotas.iter() %}
+      <td>{{ quota }}</td>
+      {% endfor %}
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>

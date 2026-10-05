@@ -8,6 +8,7 @@ use crate::service::board_view::BoardView;
 use crate::service::city_quota_row::CityQuotaRow;
 use crate::service::city_view::CityView;
 use crate::service::produce_items::required_items;
+use crate::service::seat_cycle::seats_in_turn_order;
 use crate::service::trade_view::TradeView;
 
 const EVENT_LIMIT: i64 = 120;
@@ -27,6 +28,8 @@ pub struct PlayerSummary {
     pub stock_total: i64,
     /// French name of the district holding the player's laboratories.
     pub district: &'static str,
+    /// Key of the district, which is also the colour of the player's pawns.
+    pub district_key: &'static str,
     /// French description of what the player is doing in the current phase.
     pub status: &'static str,
     /// Whether this is the player viewing the page.
@@ -56,7 +59,7 @@ pub struct GameView {
     pub me: PlayerRecord,
     /// The viewing player's fanatics, including the one in the hall.
     pub my_fanatics: Vec<FanaticRecord>,
-    /// Every player, in seat order.
+    /// Every player, in seat order from the turn's first player.
     pub players: Vec<PlayerSummary>,
     /// Number of fanatics in the great hall.
     pub hall_count: usize,
@@ -98,9 +101,10 @@ impl GameView {
             my_turn && game.phase == Phase::RebelMovement,
             &trade.tokens,
         );
-        let city = CityView::build(&players, &hall);
-        let summaries = players
-            .iter()
+        let city = CityView::build(&players, &hall, &trade.tokens, me.id);
+        let summaries = seats_in_turn_order(&game)
+            .into_iter()
+            .filter_map(|seat| players.iter().find(|player| player.seat == seat))
             .map(|player| summarize(&game, player, me.id))
             .collect();
         Ok(GameView {
@@ -219,6 +223,7 @@ fn summarize(game: &GameRecord, player: &PlayerRecord, my_id: i64) -> PlayerSumm
         laboratories: player.laboratories,
         stock_total: player.stock.total(),
         district: player.district.label(),
+        district_key: player.district.key(),
         status: status_of(game, player),
         is_me: player.id == my_id,
         is_ai: player.is_ai,

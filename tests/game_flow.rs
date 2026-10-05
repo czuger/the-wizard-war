@@ -132,9 +132,8 @@ async fn convert_first_option(pool: &SqlitePool, created: &CreatedGame) {
         .unwrap();
     let conversion = view
         .board
-        .conversion_groups
+        .conversions
         .first()
-        .and_then(|group| group.options.first())
         .and_then(|option| Conversion::from_form_value(&option.value));
     convert_site(pool, created.game_id, &created.human_token, conversion)
         .await
@@ -399,10 +398,7 @@ async fn first_turn_conversions_follow_the_rules() {
         .filter(|site| site.marker.is_some())
         .count();
     assert!(marked >= 1, "every player converted something");
-    assert!(
-        view.board.conversion_groups.is_empty(),
-        "the human has converted"
-    );
+    assert!(view.board.conversions.is_empty(), "the human has converted");
 }
 
 #[tokio::test]

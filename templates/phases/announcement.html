@@ -1,0 +1,20 @@
+<h2>Annonce</h2>
+<p>Vous pouvez envoyer un de vos fanatiques, face cachée, dans la grande salle.
+   En phase IV, la Dominante Fanatique pillera les laboratoires.
+   Il y a déjà {{ view.hall_count }} fanatique(s) dans la grande salle.</p>
+{% if let Some(record) = view.my_fanatic_in_hall() %}
+<p class="hint">Votre fanatique {{ record.fanatic.label() }} attend déjà dans la grande salle.</p>
+{% endif %}
+<form method="post" action="{{ self.player_path() }}/announcement" class="stack">
+  <div class="card-grid">
+    <label class="card"><input type="radio" name="fanatic" value="" checked> <span>N'envoyer aucun fanatique</span></label>
+    {% for record in view.available_fanatics() %}
+    <label class="card">
+      <input type="radio" name="fanatic" value="{{ record.id }}">
+      <img src="{{ record.fanatic.image() }}" alt="" class="fanatic-token">
+      <span>{{ record.fanatic.label() }}</span>
+    </label>
+    {% endfor %}
+  </div>
+  <button type="submit">Valider</button>
+</form>

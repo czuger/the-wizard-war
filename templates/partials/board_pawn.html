@@ -1,0 +1,12 @@
+{% if let Some(choice) = self.move_for(pawn.pawn_id) %}
+<button type="button" class="token mover" data-mover="pawn_{{ pawn.pawn_id }}" data-from="{{ pawn.from_value() }}" data-targets="{{ choice.targets() }}"{% if choice.in_city %} data-cargo="item_{{ pawn.pawn_id }}"{% endif %} title="{{ choice.label }} : cliquez pour le déplacer"><img src="{{ pawn.image }}" alt="{{ pawn.title }}"></button>
+{% else if let Some(sale) = self.sale_for(pawn.pawn_id) %}
+<details class="token-menu">
+  <summary class="token seller" title="{{ sale.label }}"><img src="{{ pawn.image }}" alt="{{ pawn.title }}"><span class="coin-icon seller-badge"></span></summary>
+  <div class="menu">
+    <label class="choice"><input type="checkbox" form="phase-form" name="sell_{{ pawn.pawn_id }}"{% if sale.checked %} checked{% endif %}> {{ sale.label }}</label>
+  </div>
+</details>
+{% else %}
+<img src="{{ pawn.image }}" alt="{{ pawn.title }}" title="{{ pawn.title }}">
+{% endif %}

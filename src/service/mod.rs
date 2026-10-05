@@ -29,8 +29,7 @@ mod write_transaction;
 
 pub use announce_fanatic::announce_fanatic;
 pub use board_view::{
-    BoardView, ConversionGroup, ConversionOption, DestinationOption, PathView, RebelChoice,
-    SiteView,
+    BoardView, ConversionOption, DestinationOption, PathView, RebelChoice, SiteView,
 };
 pub use city_quota_row::CityQuotaRow;
 pub use city_sales::sell_in_city;

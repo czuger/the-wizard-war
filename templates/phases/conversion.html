@@ -1,0 +1,10 @@
+<h2>Conversion</h2>
+<p>Cliquez sur un lieu en surbrillance sur la carte, puis choisissez l'action dans le menu qui s'ouvre.
+   Au premier tour, un marqueur ne peut aller que sur un village relié au bord du plateau ; ensuite, sur
+   un lieu relié par un chemin à un lieu déjà marqué. Les châteaux et les monastères ne changent jamais de culte.</p>
+<form id="phase-form" method="post" action="{{ self.player_path() }}/conversion" class="inline-form">
+  {% if view.board.conversions.is_empty() %}
+  <span>Aucune conversion n'est possible.</span>
+  <button type="submit" name="conversion" value="">Passer</button>
+  {% endif %}
+</form>

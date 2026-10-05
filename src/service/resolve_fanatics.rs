@@ -1,8 +1,9 @@
 use sqlx::SqliteConnection;
 
 use crate::db::{EventRecord, FanaticRecord, GameRecord, PlayerRecord};
-use crate::domain::{Cult, Fanatic, FanaticVerdict, TurnOrder, dominant_cult};
+use crate::domain::{Cult, Fanatic, FanaticVerdict, dominant_cult};
 use crate::error::AppError;
+use crate::service::seat_cycle::seats_in_turn_order;
 
 /// Phase IV: reveals the great hall, applies the Dominant Fanatic to every laboratory,
 /// and moves the surviving production into stock. The hall's pawns stay face up until
@@ -23,7 +24,7 @@ pub async fn resolve_fanatics(
     let dominant = dominant_cult(&hall);
     EventRecord::insert(conn, game.id, game.turn, &hall_message(&hall, dominant)).await?;
 
-    for seat in seats_in_turn_order(game, players.len()) {
+    for seat in seats_in_turn_order(game) {
         let Some(player) = players.iter_mut().find(|player| player.seat == seat) else {
             continue;
         };
@@ -45,11 +46,6 @@ pub async fn resolve_fanatics(
         }
     }
     FanaticRecord::reveal_hall(conn, game.id).await
-}
-
-fn seats_in_turn_order(game: &GameRecord, player_count: usize) -> Vec<i64> {
-    let order = TurnOrder::new(player_count as i64, game.first_seat);
-    std::iter::successors(Some(order.first_seat()), |seat| order.next_after(*seat)).collect()
 }
 
 fn hall_message(hall: &[Fanatic], dominant: Option<Cult>) -> String {

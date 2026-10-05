@@ -1,0 +1,15 @@
+<h2>Ventes intra-muros</h2>
+<p>La ville achète encore {{ view.city_sales_left }} objet(s) ce tour-ci, un par alchimiste à tour de rôle.</p>
+<form method="post" action="{{ self.player_path() }}/city-sale" class="stack">
+  <div class="card-grid">
+    <label class="card"><input type="radio" name="item" value="" checked> <span>Ne rien vendre</span></label>
+    {% for cargo in view.trade.cargo_options %}
+    <label class="card">
+      <input type="radio" name="item" value="{{ cargo.key }}">
+      <img src="{{ cargo.image }}" alt="" class="item-icon">
+      <span>{{ cargo.label }} pour {{ cargo.city_price }} écus<br><span class="hint">{{ cargo.count }} en stock</span></span>
+    </label>
+    {% endfor %}
+  </div>
+  <button type="submit">Valider</button>
+</form>

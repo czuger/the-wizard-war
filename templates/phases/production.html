@@ -1,0 +1,19 @@
+<h2>Fabrication</h2>
+<p>Vos {{ view.me.laboratories }} laboratoire(s) fabriquent ce tour-ci : prenez exactement
+   {{ view.required_items() }} objet(s) magique(s) dans la réserve de la banque.</p>
+<form method="post" action="{{ self.player_path() }}/production" class="stack">
+  <table class="items-table">
+    <thead><tr><th>Objet</th><th>Réserve</th><th>Mon stock</th><th>À fabriquer</th></tr></thead>
+    <tbody>
+      {% for line in self.supply_lines() %}
+      <tr>
+        <td><img src="{{ line.image }}" alt="" class="item-icon"> {{ line.label }}</td>
+        <td>{{ line.count }}</td>
+        <td>{{ self.stock_of(line.key) }}</td>
+        <td><input type="number" name="{{ line.key }}" value="0" min="0" max="{{ line.count }}"></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <button type="submit">Fabriquer</button>
+</form>

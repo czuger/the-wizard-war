@@ -1,0 +1,13 @@
+{% if let Some(image) = site.marker_image() %}<img src="{{ image }}" alt="" class="marker-token">{% endif %}
+<span class="site-number {{ site.marker_class() }}">{{ site.id }}</span>
+{% if site.rebels > 0 %}
+{% let movers = self.rebel_movers_at(site.id) %}
+<span class="site-rebels" title="Rebelles : {{ site.rebels }}">
+  {% if movers.is_empty() %}
+  <img src="/img/token-rebels.png" alt="Rebelles" class="rebel-token">{% if site.rebels > 1 %}<span class="rebel-count">×{{ site.rebels }}</span>{% endif %}
+  {% else %}
+  {% for mover in movers %}<button type="button" class="token mover" data-mover="rebel_{{ mover.rebel_id }}" data-from="{{ site.id }}" data-targets="{{ mover.targets() }}" title="Rebelles de {{ mover.from }} : cliquez pour les déplacer"><img src="/img/token-rebels.png" alt="Rebelles" class="rebel-token"></button>{% endfor %}
+  {% endif %}
+</span>
+{% endif %}
+{% if !site.pawns.is_empty() %}<span class="site-pawns">{% for pawn in site.pawns %}{% include "partials/board_pawn.html" %}{% endfor %}</span>{% endif %}
