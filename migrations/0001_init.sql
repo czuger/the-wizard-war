@@ -11,7 +11,7 @@ CREATE TABLE games (
     collective_expense INTEGER NOT NULL DEFAULT 0,
     version INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
+) STRICT;
 
 CREATE TABLE players (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -31,7 +31,7 @@ CREATE TABLE players (
     announcement_done INTEGER NOT NULL DEFAULT 0,
     expense_done INTEGER NOT NULL DEFAULT 0,
     UNIQUE (game_id, seat)
-);
+) STRICT;
 
 CREATE TABLE fanatics (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -40,7 +40,7 @@ CREATE TABLE fanatics (
     cult TEXT NOT NULL,
     strength INTEGER NOT NULL,
     in_hall INTEGER NOT NULL DEFAULT 0
-);
+) STRICT;
 
 CREATE TABLE event_log (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -48,7 +48,7 @@ CREATE TABLE event_log (
     turn INTEGER NOT NULL,
     message TEXT NOT NULL,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
+) STRICT;
 
 CREATE INDEX players_game ON players (game_id);
 CREATE INDEX fanatics_game ON fanatics (game_id);

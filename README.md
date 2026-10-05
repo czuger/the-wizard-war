@@ -14,7 +14,7 @@ Settings (environment variables):
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `DATABASE_URL` | `sqlite://wizard_war.db` | SQLite database, created if missing |
+| `DATABASE_URL` | `sqlite://data/wizard_war.db` | SQLite database, created with its folder if missing |
 | `BIND_ADDR` | `127.0.0.1:3000` | Address the server listens on |
 | `ASSET_ROOT` | `.` | Folder holding `img/` and `static/` |
 | `RUST_LOG` | `info` | Log filter |

@@ -13,6 +13,9 @@ pub enum AppError {
     /// The database schema could not be migrated.
     #[error("Impossible de mettre à jour la base de données.")]
     Migration(#[from] sqlx::migrate::MigrateError),
+    /// The folder holding the database file could not be created.
+    #[error("Impossible de créer le dossier de la base de données.")]
+    DatabaseFolder(#[from] std::io::Error),
     /// A page could not be rendered.
     #[error("Impossible d'afficher la page.")]
     Template(#[from] askama::Error),
@@ -75,6 +78,7 @@ impl AppError {
             self,
             AppError::Database(_)
                 | AppError::Migration(_)
+                | AppError::DatabaseFolder(_)
                 | AppError::Template(_)
                 | AppError::CorruptData { .. }
         )

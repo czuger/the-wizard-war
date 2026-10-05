@@ -2,7 +2,7 @@
 
 use std::path::PathBuf;
 
-const DEFAULT_DATABASE_URL: &str = "sqlite://wizard_war.db";
+const DEFAULT_DATABASE_URL: &str = "sqlite://data/wizard_war.db";
 const DEFAULT_BIND_ADDR: &str = "127.0.0.1:3000";
 
 /// Server settings.
