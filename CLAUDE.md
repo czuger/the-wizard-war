@@ -33,6 +33,8 @@ Game flow (`games.phase`): `announcements` (simultaneous, each player may send o
 
 The map (`src/domain/board.rs`) is a static table transcribed from `img/board.jpg`: 32 sites with invented French names, zone, pixel position, whether a path reaches the board's edge, and the paths between sites (paths to the city gates are not listed yet). Per-game state is in `cult_markers` (one per site, cult + face up/down) and `rebels`; `BoardState` holds the phase II rules (restrictions a/b/c, 21 markers per cult, 7 rebels).
 
+Pawn images are `img/token-*.png`, cut out of the counter sheet on the left of the board photo (`work/6a013486df16fc970c0133f3bcf0b2970b.jpg`). The printed pawns have no back face, so a face-down cult marker has none in the original game either: `img/token-cult-hidden.png` (a sign with a "?") is invented for this implementation.
+
 Players have no accounts: creating a game redirects the human to their private URL (`/games/{id}/players/{token}`); AIs have tokens too but nobody uses them. Open pages poll `/games/{id}/version` every 2 s and reload when it changes. Only information a player may see goes into `GameView` (own fanatics, stock and production; others' stock is shown as a count).
 
 ## Development guidelines
