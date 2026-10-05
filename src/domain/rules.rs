@@ -27,3 +27,9 @@ pub const MAX_TURNS: i64 = 30;
 
 /// Longest accepted player name, in characters.
 pub const MAX_NAME_LENGTH: usize = 30;
+
+/// Cult markers of each cult in the box.
+pub const MARKERS_PER_CULT: i64 = 21;
+
+/// Rebels pawns in the box.
+pub const REBEL_COUNT: i64 = 7;

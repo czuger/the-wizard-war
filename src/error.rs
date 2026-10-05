@@ -2,6 +2,8 @@
 
 use thiserror::Error;
 
+use crate::domain::ConversionError;
+
 /// Everything that can go wrong while handling a request.
 ///
 /// The `Display` text is shown to players, so it is written in French.
@@ -71,6 +73,15 @@ pub enum AppError {
     /// The supply does not hold the requested items.
     #[error("La réserve ne contient pas assez de ces objets.")]
     SupplyExhausted,
+    /// The conversion breaks a rule of phase II.1.
+    #[error(transparent)]
+    Conversion(#[from] ConversionError),
+    /// The player tried to pass while a conversion is possible.
+    #[error("Vous devez choisir une conversion.")]
+    ConversionRequired,
+    /// The rebel moves are missing, duplicated or not along a path to a village.
+    #[error("Chaque pion rebelle doit avancer d'un village le long d'un chemin.")]
+    InvalidRebelMove,
 }
 
 impl AppError {

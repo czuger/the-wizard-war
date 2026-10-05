@@ -1,0 +1,23 @@
+<section class="panel">
+  <h2>Le comté d'Arghtal</h2>
+  <div class="board">
+    <img src="/img/board.jpg" alt="Carte du comté d'Arghtal et de la cité d'Argh" width="1055" height="867">
+    <svg class="board-paths" viewBox="0 0 1055 867" preserveAspectRatio="none" aria-hidden="true">
+      {% for path in view.board.paths %}
+      <line x1="{{ path.x1 }}" y1="{{ path.y1 }}" x2="{{ path.x2 }}" y2="{{ path.y2 }}"></line>
+      {% endfor %}
+    </svg>
+    {% for site in view.board.sites %}
+    <span class="site {{ site.marker_class() }}" style="left: {{ site.left }}%; top: {{ site.top }}%" title="{{ site.title }}">
+      {{ site.id }}{% if site.rebels > 0 %}<span class="rebels" title="Rebelles">⚔{{ site.rebels }}</span>{% endif %}
+    </span>
+    {% endfor %}
+  </div>
+  <p class="hint board-legend">
+    <span class="site legend unmarked">n</span> sans marqueur
+    <span class="site legend xephis">n</span> Xéphis
+    <span class="site legend yaboul">n</span> Yaboul
+    <span class="site legend xephis hidden">n</span> face cachée
+    <span class="rebels legend">⚔</span> rebelles. Survolez un lieu pour voir son nom.
+  </p>
+</section>

@@ -27,6 +27,14 @@ pub fn build_router(state: AppState, asset_root: &Path) -> Router {
             post(action_handlers::pay),
         )
         .route(
+            &format!("{player_path}/conversion"),
+            post(action_handlers::convert),
+        )
+        .route(
+            &format!("{player_path}/rebels"),
+            post(action_handlers::move_rebel_pawns),
+        )
+        .route(
             &format!("{player_path}/production"),
             post(action_handlers::produce),
         )

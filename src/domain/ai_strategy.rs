@@ -3,12 +3,17 @@
 //! The strategy is deliberately basic: an AI backs the cult its fanatics are strongest in,
 //! sends a pawn of that cult to the hall one turn in two, and only makes items of that cult
 //! when it has sent a pawn. Otherwise it makes Toratsa talismans, which the fanatics ignore.
-//! It only uses what the player could see: its own hand, its money and the supply.
+//! On the map it spreads that cult: it converts hidden rival villages, places its markers
+//! (castles and monasteries first, since they never change), hides rival markers and reveals
+//! its own. Rebels move at random.
+//! It only uses what the player could see: its own hand, its money, the supply and the map.
 
+use rand::seq::IndexedRandom;
 use rand::{Rng, RngExt};
 
+use crate::domain::board::site_by_id;
 use crate::domain::rules::EXPENSE_STEP;
-use crate::domain::{Cult, Fanatic, ItemCounts, MagicItem};
+use crate::domain::{BoardState, Conversion, Cult, Fanatic, ItemCounts, MagicItem};
 
 /// Chance that an AI sends a fanatic to the hall in a given turn.
 const SEND_PROBABILITY: f64 = 0.5;
@@ -90,6 +95,52 @@ pub fn choose_production(count: i64, supply: &ItemCounts, backed_cult: Option<Cu
     chosen
 }
 
+/// Chooses the conversion of phase II.1 for an AI backing `cult`.
+///
+/// # Returns
+/// A random conversion among the most useful legal ones, or `None` when none is legal.
+pub fn choose_conversion<R: Rng>(
+    board: &BoardState,
+    turn: i64,
+    cult: Option<Cult>,
+    rng: &mut R,
+) -> Option<Conversion> {
+    let legal = board.legal_conversions(turn);
+    let Some(cult) = cult else {
+        return legal.choose(rng).copied();
+    };
+    let best = legal
+        .iter()
+        .map(|conversion| conversion_priority(board, cult, conversion))
+        .min()?;
+    let candidates: Vec<Conversion> = legal
+        .into_iter()
+        .filter(|conversion| conversion_priority(board, cult, conversion) == best)
+        .collect();
+    candidates.choose(rng).copied()
+}
+
+/// Ranks a legal conversion for an AI backing `cult`: the lower, the better.
+fn conversion_priority(board: &BoardState, cult: Cult, conversion: &Conversion) -> u8 {
+    let marker = board.marker(conversion.site());
+    let marker_is = |wanted: Cult, face_up: bool| {
+        marker.is_some_and(|marker| marker.cult == wanted && marker.face_up == face_up)
+    };
+    match *conversion {
+        Conversion::Replace { .. } if marker_is(cult.opposite(), false) => 0,
+        Conversion::Place { site, cult: placed } if placed == cult => {
+            if site_by_id(site).is_some_and(|site| site.kind.is_permanent()) {
+                1
+            } else {
+                2
+            }
+        }
+        Conversion::Flip { .. } if marker_is(cult.opposite(), true) => 3,
+        Conversion::Flip { .. } if marker_is(cult, false) => 4,
+        _ => 5,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -140,6 +191,40 @@ mod tests {
         assert_eq!(
             choose_production(2, &supply, None),
             ItemCounts::new(2, 0, 0)
+        );
+    }
+
+    #[test]
+    fn conversion_is_always_legal() {
+        let mut rng = rand::rng();
+        let empty = BoardState::default();
+        for _ in 0..20 {
+            let choice = choose_conversion(&empty, 1, Some(Cult::Yaboul), &mut rng);
+            assert!(matches!(
+                choice,
+                Some(Conversion::Place {
+                    cult: Cult::Yaboul,
+                    ..
+                })
+            ));
+            assert!(empty.validate(&choice.unwrap(), 1).is_ok());
+        }
+    }
+
+    #[test]
+    fn conversion_takes_hidden_rival_villages_first() {
+        use std::collections::BTreeMap;
+
+        use crate::domain::{CultMarker, SiteId};
+
+        let hidden = CultMarker {
+            cult: Cult::Xephis,
+            face_up: false,
+        };
+        let board = BoardState::new(BTreeMap::from([(SiteId(11), hidden)]), Vec::new());
+        assert_eq!(
+            choose_conversion(&board, 2, Some(Cult::Yaboul), &mut rand::rng()),
+            Some(Conversion::Replace { site: SiteId(11) })
         );
     }
 

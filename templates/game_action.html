@@ -23,6 +23,45 @@
     </label>
     <button type="submit">Payer</button>
   </form>
+{% else if view.can_convert() %}
+  <h2>Conversion</h2>
+  <p>Choisissez exactement une action sur la carte. Au premier tour, un marqueur ne peut aller que sur
+     un village relié au bord du plateau ; ensuite, sur un lieu relié par un chemin à un lieu déjà marqué.
+     Les châteaux et les monastères ne changent jamais de culte.</p>
+  <form method="post" action="{{ self.player_path() }}/conversion" class="stack">
+    {% if view.board.conversion_groups.is_empty() %}
+    <p>Aucune conversion n'est possible.</p>
+    <input type="hidden" name="conversion" value="">
+    <button type="submit">Passer</button>
+    {% else %}
+    <select name="conversion" class="wide" required>
+      {% for group in view.board.conversion_groups %}
+      <optgroup label="{{ group.label }}">
+        {% for option in group.options %}
+        <option value="{{ option.value }}">{{ option.label }}</option>
+        {% endfor %}
+      </optgroup>
+      {% endfor %}
+    </select>
+    <button type="submit">Convertir</button>
+    {% endif %}
+  </form>
+{% else if view.can_move_rebels() %}
+  <h2>Déplacement des rebelles</h2>
+  <p>Vous jouez en premier ce tour-ci : chaque pion rebelle avance d'un village le long d'un chemin.
+     Les châteaux et les monastères les arrêtent.</p>
+  <form method="post" action="{{ self.player_path() }}/rebels" class="stack">
+    {% for choice in view.board.rebel_choices %}
+    <label>Rebelles de {{ choice.from }} vers
+      <select name="rebel_{{ choice.rebel_id }}">
+        {% for destination in choice.destinations %}
+        <option value="{{ destination.site }}">{{ destination.site }}. {{ destination.name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    {% endfor %}
+    <button type="submit">Déplacer</button>
+  </form>
 {% else if view.can_produce() %}
   <h2>Fabrication</h2>
   <p>Prenez exactement {{ view.required_items() }} objet(s) magique(s) dans la réserve.</p>

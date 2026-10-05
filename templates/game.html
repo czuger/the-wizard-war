@@ -9,6 +9,8 @@
 
 {% if let Some(error) = error %}<p class="error panel">{{ error }}</p>{% endif %}
 
+{% include "board.html" %}
+
 <div class="layout">
   <div class="column">
     {% include "game_action.html" %}

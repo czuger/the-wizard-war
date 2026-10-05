@@ -81,3 +81,27 @@ button:hover { filter: brightness(1.15); }
 .log { max-height: 320px; overflow-y: auto; }
 .log li { padding: 3px 0; border-bottom: 1px dotted var(--border); }
 .log-turn { color: var(--muted); font-size: 0.85rem; margin-right: 4px; }
+
+.board { position: relative; width: 100%; max-width: 1055px; margin: 0 auto; }
+.board img { display: block; width: 100%; height: auto; border-radius: 4px; }
+.board-paths { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.board-paths line { stroke: rgba(122, 46, 29, 0.35); stroke-width: 2; stroke-dasharray: 6 4; }
+
+.site {
+  position: absolute; transform: translate(-50%, -50%);
+  min-width: 22px; height: 22px; padding: 0 4px; border-radius: 11px;
+  display: inline-flex; align-items: center; justify-content: center; gap: 2px;
+  font: bold 12px/1 sans-serif; color: #fff; border: 2px solid #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5); cursor: help;
+}
+.site.unmarked { background: rgba(60, 50, 40, 0.75); }
+.site.xephis { background: #b3263a; }
+.site.yaboul { background: #1f6fb2; }
+.site.hidden { opacity: 0.75; border-style: dashed; border-color: #222; }
+.site .rebels { font-size: 11px; color: #ffd84d; }
+.site.legend { position: static; transform: none; vertical-align: middle; cursor: default; }
+.rebels.legend { color: #b3263a; font-weight: bold; }
+.board-legend { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 8px; }
+
+select { padding: 4px 6px; border: 1px solid var(--border); border-radius: 4px; font: inherit; max-width: 100%; }
+select.wide { width: 100%; }

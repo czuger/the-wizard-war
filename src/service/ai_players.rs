@@ -1,10 +1,16 @@
 use sqlx::SqliteConnection;
 
-use crate::db::{FanaticRecord, GameRecord, PlayerRecord};
-use crate::domain::ai_strategy::{choose_announcement, choose_expense, choose_production};
+use crate::db::{FanaticRecord, GameRecord, PlayerRecord, RebelRecord};
+use crate::domain::ai_strategy::{
+    choose_announcement, choose_conversion, choose_expense, choose_production, preferred_cult,
+};
+use crate::domain::rebel_movement::random_destination;
 use crate::domain::{Fanatic, Phase};
 use crate::error::AppError;
 use crate::service::announce_fanatic::record_announcement;
+use crate::service::board_loader::load_board_state;
+use crate::service::convert_site::record_conversion;
+use crate::service::move_rebels::{RebelMove, record_rebel_moves};
 use crate::service::pay_expense::record_expense;
 use crate::service::produce_items::{record_production, required_items};
 
@@ -26,6 +32,8 @@ pub async fn play_ai_players(
                 let amount = choose_expense(player.money, &mut rand::rng());
                 record_expense(conn, game, &mut player, amount).await?;
             }
+            Phase::Conversions => convert(conn, game, &player).await?,
+            Phase::RebelMovement => move_rebels(conn, game, &player).await?,
             Phase::Production => produce(conn, game, &mut player).await?,
             Phase::Finished => break,
         }
@@ -44,7 +52,9 @@ async fn next_ai_player(
             && match game.phase {
                 Phase::Announcements => !player.announcement_done,
                 Phase::Expenses => !player.expense_done,
-                Phase::Production => game.active_seat == Some(player.seat),
+                Phase::Conversions | Phase::RebelMovement | Phase::Production => {
+                    game.active_seat == Some(player.seat)
+                }
                 Phase::Finished => false,
             }
     }))
@@ -81,4 +91,45 @@ async fn produce(
     let count = required_items(player.laboratories, &game.supply);
     let items = choose_production(count, &game.supply, backed_cult);
     record_production(conn, game, player, items).await
+}
+
+/// Spreads the cult the AI's fanatics are strongest in.
+async fn convert(
+    conn: &mut SqliteConnection,
+    game: &mut GameRecord,
+    player: &PlayerRecord,
+) -> Result<(), AppError> {
+    let hand: Vec<Fanatic> = FanaticRecord::list_for_player(conn, player.id)
+        .await?
+        .into_iter()
+        .map(|record| record.fanatic)
+        .collect();
+    let board = load_board_state(conn, game.id).await?;
+    let conversion = choose_conversion(&board, game.turn, preferred_cult(&hand), &mut rand::rng());
+    record_conversion(conn, game, player, conversion).await
+}
+
+/// Sends every rebels pawn to a random adjacent village.
+async fn move_rebels(
+    conn: &mut SqliteConnection,
+    game: &mut GameRecord,
+    player: &PlayerRecord,
+) -> Result<(), AppError> {
+    let rebels = RebelRecord::list_for_game(conn, game.id).await?;
+    let moves = random_moves(&rebels);
+    record_rebel_moves(conn, game, player, &moves).await
+}
+
+/// Kept synchronous: the thread-local RNG must not live across an `.await`.
+fn random_moves(rebels: &[RebelRecord]) -> Vec<RebelMove> {
+    let mut rng = rand::rng();
+    rebels
+        .iter()
+        .filter_map(|rebel| {
+            random_destination(rebel.site, &mut rng).map(|to| RebelMove {
+                rebel_id: rebel.id,
+                to,
+            })
+        })
+        .collect()
 }

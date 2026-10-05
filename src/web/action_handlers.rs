@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use askama::Template;
 use axum::Form;
 use axum::extract::{Path, State};
@@ -5,9 +7,11 @@ use axum::http::StatusCode;
 use axum::response::{Html, IntoResponse, Redirect, Response};
 use serde::Deserialize;
 
-use crate::domain::ItemCounts;
+use crate::domain::{Conversion, ConversionError, ItemCounts, SiteId};
 use crate::error::AppError;
-use crate::service::{GameView, announce_fanatic, pay_expense, produce_items};
+use crate::service::{
+    GameView, RebelMove, announce_fanatic, convert_site, move_rebels, pay_expense, produce_items,
+};
 use crate::web::app_state::AppState;
 use crate::web::game_page::GamePage;
 
@@ -35,6 +39,16 @@ pub struct ProductionForm {
     #[serde(default)]
     yaboul: String,
 }
+
+/// The conversion form: a value made by [`Conversion::form_value`], or empty to pass.
+#[derive(Debug, Deserialize)]
+pub struct ConversionForm {
+    #[serde(default)]
+    conversion: String,
+}
+
+/// Prefix of the rebel form's fields, followed by the pawn's id; the value is a site id.
+const REBEL_FIELD_PREFIX: &str = "rebel_";
 
 /// `POST …/announcement`
 pub async fn announce(
@@ -80,6 +94,55 @@ pub async fn produce(
         Err(error) => Err(error),
     };
     respond(&state, game_id, &token, result).await
+}
+
+/// `POST …/conversion`
+pub async fn convert(
+    State(state): State<AppState>,
+    Path((game_id, token)): Path<(i64, String)>,
+    Form(form): Form<ConversionForm>,
+) -> Result<Response, AppError> {
+    let result = match form.conversion.trim() {
+        "" => Ok(None),
+        value => Conversion::from_form_value(value)
+            .map(Some)
+            .ok_or(AppError::Conversion(ConversionError::UnknownSite)),
+    };
+    let result = match result {
+        Ok(conversion) => convert_site(&state.pool, game_id, &token, conversion).await,
+        Err(error) => Err(error),
+    };
+    respond(&state, game_id, &token, result).await
+}
+
+/// `POST …/rebels`
+pub async fn move_rebel_pawns(
+    State(state): State<AppState>,
+    Path((game_id, token)): Path<(i64, String)>,
+    Form(form): Form<HashMap<String, String>>,
+) -> Result<Response, AppError> {
+    let result = match parse_rebel_moves(&form) {
+        Ok(moves) => move_rebels(&state.pool, game_id, &token, moves).await,
+        Err(error) => Err(error),
+    };
+    respond(&state, game_id, &token, result).await
+}
+
+fn parse_rebel_moves(form: &HashMap<String, String>) -> Result<Vec<RebelMove>, AppError> {
+    form.iter()
+        .filter_map(|(key, value)| Some((key.strip_prefix(REBEL_FIELD_PREFIX)?, value)))
+        .map(|(id, site)| {
+            let rebel_id = id.parse().map_err(|_| AppError::InvalidRebelMove)?;
+            let site: u8 = site
+                .trim()
+                .parse()
+                .map_err(|_| AppError::InvalidRebelMove)?;
+            Ok(RebelMove {
+                rebel_id,
+                to: SiteId(site),
+            })
+        })
+        .collect()
 }
 
 fn parse_count(value: &str, error: AppError) -> Result<i64, AppError> {

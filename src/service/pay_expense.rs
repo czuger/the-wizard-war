@@ -9,7 +9,7 @@ use crate::service::write_transaction::begin_write;
 
 /// Phase I.2: the player secretly pays into the collective expense envelope.
 ///
-/// When every player has paid, production starts with the turn's first player.
+/// When every player has paid, the conversions start with the turn's first player.
 ///
 /// # Arguments
 /// * `amount` - écus paid, a multiple of 100, possibly 0.
@@ -61,7 +61,7 @@ pub(crate) async fn record_expense(
 
     let players = PlayerRecord::list_for_game(conn, game.id).await?;
     if players.iter().all(|other| other.expense_done) {
-        game.phase = Phase::Production;
+        game.phase = Phase::Conversions;
         game.active_seat = Some(game.first_seat);
     }
     Ok(())

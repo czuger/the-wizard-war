@@ -1,8 +1,10 @@
 use sqlx::SqlitePool;
 
-use crate::db::{EventRecord, FanaticRecord, GameRecord, PlayerRecord};
+use crate::db::{EventRecord, FanaticRecord, GameRecord, PlayerRecord, RebelRecord};
 use crate::domain::{ItemCounts, Phase};
 use crate::error::AppError;
+use crate::service::board_loader::load_board_state;
+use crate::service::board_view::BoardView;
 use crate::service::produce_items::required_items;
 
 const EVENT_LIMIT: i64 = 40;
@@ -51,6 +53,8 @@ pub struct GameView {
     pub players: Vec<PlayerSummary>,
     /// Number of face-down fanatics in the great hall.
     pub hall_count: usize,
+    /// The map, with the viewing player's phase II choices.
+    pub board: BoardView,
     /// Latest log messages, newest first.
     pub events: Vec<EventRecord>,
     /// Change counter, used by the page to know when to refresh.
@@ -70,6 +74,15 @@ impl GameView {
         let my_fanatics = FanaticRecord::list_for_player(&mut conn, me.id).await?;
         let hall_count = FanaticRecord::list_in_hall(&mut conn, game_id).await?.len();
         let events = EventRecord::latest(&mut conn, game_id, EVENT_LIMIT).await?;
+        let board_state = load_board_state(&mut conn, game_id).await?;
+        let rebels = RebelRecord::list_for_game(&mut conn, game_id).await?;
+        let my_turn = game.active_seat == Some(me.seat);
+        let board = BoardView::build(
+            &board_state,
+            &rebels,
+            (my_turn && game.phase == Phase::Conversions).then_some(game.turn),
+            my_turn && game.phase == Phase::RebelMovement,
+        );
         let summaries = players
             .iter()
             .map(|player| summarize(&game, player, me.id))
@@ -85,6 +98,7 @@ impl GameView {
             my_fanatics,
             players: summaries,
             hall_count,
+            board,
             events,
             version: game.version,
         })
@@ -98,6 +112,16 @@ impl GameView {
     /// Whether the viewing player still has to pay this turn's expense.
     pub fn can_pay(&self) -> bool {
         self.phase == Phase::Expenses && !self.me.expense_done
+    }
+
+    /// Whether the viewing player is the one converting a site now.
+    pub fn can_convert(&self) -> bool {
+        self.phase == Phase::Conversions && self.active_seat == Some(self.me.seat)
+    }
+
+    /// Whether the viewing player has to move the rebels now.
+    pub fn can_move_rebels(&self) -> bool {
+        self.phase == Phase::RebelMovement && self.active_seat == Some(self.me.seat)
     }
 
     /// Whether the viewing player is the one making items now.
@@ -148,6 +172,9 @@ fn status_of(game: &GameRecord, player: &PlayerRecord) -> &'static str {
         Phase::Announcements => "Choisit un fanatique…",
         Phase::Expenses if player.expense_done => "Dépense faite",
         Phase::Expenses => "Prépare sa dépense…",
+        Phase::Conversions if game.active_seat == Some(player.seat) => "Convertit un lieu…",
+        Phase::RebelMovement if game.active_seat == Some(player.seat) => "Déplace les rebelles…",
+        Phase::Conversions | Phase::RebelMovement => "Attend",
         Phase::Production if game.active_seat == Some(player.seat) => "Fabrique ses objets…",
         Phase::Production => "Attend",
         Phase::Finished => "",
