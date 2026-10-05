@@ -4,7 +4,7 @@ use sqlx::{SqliteConnection, SqlitePool};
 
 use crate::db::{EventRecord, FanaticRecord, GameRecord, PlayerRecord};
 use crate::domain::rules::{AI_NAMES, HUMAN_SEAT, MAX_NAME_LENGTH, MAX_TURNS, PLAYER_COUNT};
-use crate::domain::{Fanatic, FanaticPool, ItemCounts};
+use crate::domain::{District, Fanatic, FanaticPool, ItemCounts};
 use crate::error::AppError;
 use crate::service::player_action::PlayerAction;
 use crate::service::write_transaction::begin_write;
@@ -34,6 +34,7 @@ struct Setup {
 /// # Arguments
 /// * `human_name` - name of the human player, seated first; surrounding spaces are trimmed.
 /// * `max_turns` - number of turns before the game ends.
+/// * `district` - district of the human player's laboratories; the AIs get the others.
 ///
 /// # Errors
 /// Fails on an invalid name or number of turns, or on a database error.
@@ -41,8 +42,10 @@ pub async fn create_game(
     pool: &SqlitePool,
     human_name: &str,
     max_turns: i64,
+    district: District,
 ) -> Result<CreatedGame, AppError> {
     let names = seat_names(human_name)?;
+    let districts = seat_districts(district);
     if !(1..=MAX_TURNS).contains(&max_turns) {
         return Err(AppError::InvalidTurnCount);
     }
@@ -61,7 +64,12 @@ pub async fn create_game(
         ItemCounts::initial_supply(),
     )
     .await?;
-    insert_players(&mut tx, game_id, &names, setup.hands, &setup.tokens).await?;
+    let seats = SeatSetup {
+        names: &names,
+        districts: &districts,
+        tokens: &setup.tokens,
+    };
+    insert_players(&mut tx, game_id, &seats, setup.hands).await?;
     let first_name = names
         .get(setup.first_seat as usize)
         .map(String::as_str)
@@ -88,6 +96,17 @@ fn seat_names(human_name: &str) -> Result<Vec<String>, AppError> {
     Ok(names)
 }
 
+/// Returns the districts in seat order: the human player's, then the others.
+fn seat_districts(human: District) -> Vec<District> {
+    let mut districts = vec![human];
+    districts.extend(
+        District::ALL
+            .into_iter()
+            .filter(|&district| district != human),
+    );
+    districts
+}
+
 fn draw_setup() -> Result<Setup, AppError> {
     let mut rng = rand::rng();
     let hands = FanaticPool::full()
@@ -110,17 +129,25 @@ fn draw_setup() -> Result<Setup, AppError> {
     })
 }
 
+/// What each seat is given, in seat order.
+struct SeatSetup<'a> {
+    names: &'a [String],
+    districts: &'a [District],
+    tokens: &'a [String],
+}
+
 async fn insert_players(
     conn: &mut SqliteConnection,
     game_id: i64,
-    names: &[String],
+    seats: &SeatSetup<'_>,
     hands: Vec<Vec<Fanatic>>,
-    tokens: &[String],
 ) -> Result<(), AppError> {
-    for (seat, ((name, hand), token)) in names.iter().zip(hands).zip(tokens).enumerate() {
+    let seat_data = seats.names.iter().zip(seats.districts).zip(seats.tokens);
+    for (seat, (((name, district), token), hand)) in seat_data.zip(hands).enumerate() {
         let seat = seat as i64;
+        let is_ai = seat != HUMAN_SEAT;
         let player_id =
-            PlayerRecord::insert(conn, game_id, seat, name, token, seat != HUMAN_SEAT).await?;
+            PlayerRecord::insert(conn, game_id, seat, name, token, is_ai, *district).await?;
         for fanatic in hand {
             FanaticRecord::insert(conn, game_id, player_id, fanatic).await?;
         }
@@ -138,6 +165,18 @@ mod tests {
         assert_eq!(names.len(), PLAYER_COUNT);
         assert_eq!(names[HUMAN_SEAT as usize], "Ana");
         assert_eq!(names[1..], AI_NAMES.map(String::from));
+    }
+
+    #[test]
+    fn every_seat_gets_its_own_district() {
+        let districts = seat_districts(District::Green);
+        assert_eq!(districts.len(), PLAYER_COUNT);
+        assert_eq!(districts[0], District::Green);
+        assert!(
+            District::ALL
+                .iter()
+                .all(|district| districts.contains(district))
+        );
     }
 
     #[test]

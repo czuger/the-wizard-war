@@ -18,8 +18,9 @@ use crate::domain::{BoardState, Conversion, Cult, Fanatic, ItemCounts, MagicItem
 /// Chance that an AI sends a fanatic to the hall in a given turn.
 const SEND_PROBABILITY: f64 = 0.5;
 
-/// Largest expense an AI pays in one turn, in écus.
-const MAX_EXPENSE: i64 = 300;
+/// Largest expense an AI pays in one turn, in écus: enough, all together, to open the
+/// city to sales in the first turns.
+const MAX_EXPENSE: i64 = 1_000;
 
 /// Returns the cult with the most total strength in `hand`, Xéphis on a tie.
 ///
@@ -58,7 +59,7 @@ pub fn choose_announcement<R: Rng>(hand: &[Fanatic], rng: &mut R) -> Option<usiz
         .map(|(index, _)| index)
 }
 
-/// Chooses a random expense between 0 and 300 écus, never more than `money`.
+/// Chooses a random expense between 0 and 1,000 écus, never more than `money`.
 pub fn choose_expense<R: Rng>(money: i64, rng: &mut R) -> i64 {
     let most = MAX_EXPENSE.min(money.max(0)) / EXPENSE_STEP;
     rng.random_range(0..=most) * EXPENSE_STEP

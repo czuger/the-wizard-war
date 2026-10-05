@@ -1,17 +1,101 @@
 use sqlx::SqlitePool;
-use wizard_war::db::{self, FanaticRecord, GameRecord, PlayerRecord};
+use wizard_war::db::{self, FanaticRecord, GameRecord, PawnRecord, PlayerRecord};
 use wizard_war::domain::rules::{AI_NAMES, HUMAN_SEAT, PLAYER_COUNT};
-use wizard_war::domain::{Conversion, ConversionError, Cult, ItemCounts, Phase, SiteId};
+use wizard_war::domain::{
+    Conversion, ConversionError, Cult, District, ItemCounts, Location, MagicItem, PawnKind,
+    PawnOrder, Phase, Purchase, PurchaseError, SiteId,
+};
 use wizard_war::error::AppError;
 use wizard_war::service::{
-    CreatedGame, GameView, RebelMove, announce_fanatic, convert_site, create_game, move_rebels,
-    pay_expense, produce_items, required_items,
+    CreatedGame, GameView, RebelMove, announce_fanatic, attack_pawn, buy_from_bank, convert_site,
+    create_game, move_pawns, move_rebels, pay_expense, produce_items, required_items, sell_in_city,
+    sell_items,
 };
 
 async fn new_game(max_turns: i64) -> (SqlitePool, CreatedGame) {
     let pool = db::connect("sqlite::memory:").await.unwrap();
-    let game = create_game(&pool, "Ana", max_turns).await.unwrap();
+    let game = create_game(&pool, "Ana", max_turns, District::Green)
+        .await
+        .unwrap();
     (pool, game)
+}
+
+async fn pawns(pool: &SqlitePool, id: i64) -> Vec<PawnRecord> {
+    PawnRecord::list_for_game(&mut pool.acquire().await.unwrap(), id)
+        .await
+        .unwrap()
+}
+
+/// Settles the pending rebel fight against the first pawn offered.
+async fn attack_first_option(pool: &SqlitePool, created: &CreatedGame) {
+    let view = GameView::load(pool, created.game_id, &created.human_token)
+        .await
+        .unwrap();
+    let target = view.trade.fight.expect("a fight is pending").targets[0].pawn_id;
+    attack_pawn(pool, created.game_id, &created.human_token, target)
+        .await
+        .unwrap();
+}
+
+/// Sends every movable pawn to its first destination, loading the first stock item, then
+/// sells everything that can be sold.
+async fn move_and_sell_first_options(pool: &SqlitePool, created: &CreatedGame) {
+    let (id, token) = (created.game_id, &created.human_token);
+    let view = GameView::load(pool, id, token).await.unwrap();
+    if view.can_move_pawns() {
+        let mut stock = view.me.stock;
+        let mut orders = Vec::new();
+        for choice in &view.trade.move_choices {
+            let item = MagicItem::ALL.into_iter().find(|&item| stock.get(item) > 0);
+            if choice.in_city && item.is_none() {
+                continue;
+            }
+            let item = if choice.in_city { item } else { None };
+            if let Some(item) = item {
+                stock = stock.with(item, stock.get(item) - 1);
+            }
+            orders.push(PawnOrder {
+                pawn_id: choice.pawn_id,
+                to: Location::from_form_value(&choice.destinations[0].value).unwrap(),
+                item,
+            });
+        }
+        move_pawns(pool, id, token, orders).await.unwrap();
+    } else {
+        let sellers = view
+            .trade
+            .sale_choices
+            .iter()
+            .filter(|choice| choice.checked)
+            .map(|choice| choice.pawn_id)
+            .collect();
+        sell_items(pool, id, token, sellers).await.unwrap();
+    }
+}
+
+/// Sells the first stock item in the city.
+async fn sell_first_in_city(pool: &SqlitePool, created: &CreatedGame) {
+    let me = &players(pool, created.game_id).await[HUMAN_SEAT as usize];
+    let item = MagicItem::ALL
+        .into_iter()
+        .find(|&item| me.stock.get(item) > 0);
+    sell_in_city(pool, created.game_id, &created.human_token, item)
+        .await
+        .unwrap();
+}
+
+/// Buys one peddler when affordable and allowed, otherwise nothing.
+async fn buy_a_peddler(pool: &SqlitePool, created: &CreatedGame) {
+    let (id, token) = (created.game_id, &created.human_token);
+    let one = Purchase {
+        peddlers: 1,
+        ..Purchase::default()
+    };
+    if buy_from_bank(pool, id, token, one).await.is_err() {
+        buy_from_bank(pool, id, token, Purchase::default())
+            .await
+            .unwrap();
+    }
 }
 
 async fn game_record(pool: &SqlitePool, id: i64) -> GameRecord {
@@ -76,8 +160,9 @@ async fn move_rebels_first_option(pool: &SqlitePool, created: &CreatedGame) {
         .unwrap();
 }
 
-/// Plays one whole turn for the human: no fanatic, no expense, the first conversion and
-/// rebel moves offered, the first items in the supply.
+/// Plays one whole turn for the human: no fanatic, no expense, the first conversion, rebel
+/// moves, target and pawn moves offered, the first items in the supply, every sale possible
+/// and a peddler whenever possible.
 async fn play_human_turn(pool: &SqlitePool, created: &CreatedGame) {
     let (id, token) = (created.game_id, &created.human_token);
     let turn = game_record(pool, id).await.turn;
@@ -96,7 +181,11 @@ async fn play_human_turn(pool: &SqlitePool, created: &CreatedGame) {
         match game.phase {
             Phase::Conversions => convert_first_option(pool, created).await,
             Phase::RebelMovement => move_rebels_first_option(pool, created).await,
+            Phase::RebelFights => attack_first_option(pool, created).await,
             Phase::Production => produce_first_items(pool, created).await,
+            Phase::Peddlers => move_and_sell_first_options(pool, created).await,
+            Phase::CitySales => sell_first_in_city(pool, created).await,
+            Phase::Purchases => buy_a_peddler(pool, created).await,
             phase => panic!("unexpected phase {phase:?}"),
         }
     }
@@ -180,6 +269,48 @@ async fn human_production_is_checked_then_the_turn_completes() {
         .await
         .unwrap();
 
+    // Nobody owns a pawn yet: the city sales, if any, then the purchases follow.
+    while game_record(&pool, id).await.phase == Phase::CitySales {
+        sell_in_city(&pool, id, token, None).await.unwrap();
+    }
+    let game = game_record(&pool, id).await;
+    assert_eq!(game.phase, Phase::Purchases);
+    assert_eq!(game.active_seat, Some(HUMAN_SEAT));
+    let buy = |purchase: Purchase| buy_from_bank(&pool, id, token, purchase);
+    assert!(matches!(
+        buy(Purchase {
+            caravans: 1,
+            peddlers: 1,
+            ..Purchase::default()
+        })
+        .await,
+        Err(AppError::Purchase(PurchaseError::InsufficientFunds))
+    ));
+    assert!(matches!(
+        buy(Purchase {
+            sold_peddlers: 1,
+            ..Purchase::default()
+        })
+        .await,
+        Err(AppError::Purchase(PurchaseError::NotInCity))
+    ));
+    buy(Purchase {
+        peddlers: 1,
+        ..Purchase::default()
+    })
+    .await
+    .unwrap();
+    let human = &players(&pool, id).await[HUMAN_SEAT as usize];
+    assert_eq!(human.money, 2_000);
+    let mine: Vec<PawnRecord> = pawns(&pool, id)
+        .await
+        .into_iter()
+        .filter(|pawn| pawn.player_id == human.id)
+        .collect();
+    assert_eq!(mine.len(), 1);
+    assert_eq!(mine[0].kind, PawnKind::Peddler);
+    assert_eq!(mine[0].location, Location::City);
+
     let game = game_record(&pool, id).await;
     assert_eq!(game.turn, 2);
     assert_eq!(game.phase, Phase::Announcements);
@@ -202,10 +333,19 @@ async fn a_long_game_runs_to_the_end_with_an_empty_supply() {
     }
     let game = game_record(&pool, created.game_id).await;
     assert_eq!(game.phase, Phase::Finished);
-    assert_eq!(
-        game.supply.total(),
-        0,
-        "120 items wanted, only 80 in the box"
+    let stocks: i64 = players(&pool, created.game_id)
+        .await
+        .iter()
+        .map(|player| player.stock.total() + player.production.total())
+        .sum();
+    let carried = pawns(&pool, created.game_id)
+        .await
+        .iter()
+        .filter(|pawn| pawn.item.is_some())
+        .count() as i64;
+    assert!(
+        game.supply.total() + stocks + carried <= 80,
+        "items only leave the box or come back to it"
     );
     assert!(matches!(
         announce_fanatic(&pool, created.game_id, &created.human_token, None).await,
@@ -217,7 +357,7 @@ async fn a_long_game_runs_to_the_end_with_an_empty_supply() {
 async fn invalid_names_and_tokens_are_rejected() {
     let (pool, created) = new_game(8).await;
     assert!(matches!(
-        create_game(&pool, AI_NAMES[2], 8).await,
+        create_game(&pool, AI_NAMES[2], 8, District::Blue).await,
         Err(AppError::InvalidPlayerName)
     ));
     assert!(matches!(
@@ -321,9 +461,272 @@ async fn rebel_moves_are_checked() {
             Phase::Announcements => announce_fanatic(&pool, id, token, None).await.unwrap(),
             Phase::Expenses => pay_expense(&pool, id, token, 0).await.unwrap(),
             Phase::Conversions => convert_first_option(&pool, &created).await,
+            Phase::RebelFights => attack_first_option(&pool, &created).await,
             Phase::Production => produce_first_items(&pool, &created).await,
+            Phase::Peddlers => move_and_sell_first_options(&pool, &created).await,
+            Phase::CitySales => sell_first_in_city(&pool, &created).await,
+            Phase::Purchases => buy_a_peddler(&pool, &created).await,
             phase => panic!("unexpected phase {phase:?}"),
         }
     }
     panic!("the human never had to move rebels");
+}
+
+/// Plays the human's actions, passing in the city and buying a peddler, until `stop` holds.
+async fn play_until(
+    pool: &SqlitePool,
+    created: &CreatedGame,
+    stop: impl Fn(&GameRecord, &PlayerRecord) -> bool,
+) -> bool {
+    let (id, token) = (created.game_id, &created.human_token);
+    for _ in 0..300 {
+        let game = game_record(pool, id).await;
+        let human = players(pool, id).await.remove(HUMAN_SEAT as usize);
+        if stop(&game, &human) {
+            return true;
+        }
+        // Paying into the envelope opens the city to sales.
+        let expense = human.money.min(2_000) / 100 * 100;
+        match game.phase {
+            Phase::Announcements => announce_fanatic(pool, id, token, None).await.unwrap(),
+            Phase::Expenses => pay_expense(pool, id, token, expense).await.unwrap(),
+            Phase::Conversions => convert_first_option(pool, created).await,
+            Phase::RebelMovement => move_rebels_first_option(pool, created).await,
+            Phase::RebelFights => attack_first_option(pool, created).await,
+            Phase::Production => produce_first_items(pool, created).await,
+            Phase::Peddlers => move_and_sell_first_options(pool, created).await,
+            Phase::CitySales => sell_in_city(pool, id, token, None).await.unwrap(),
+            Phase::Purchases => buy_a_peddler(pool, created).await,
+            Phase::Finished => return false,
+        }
+    }
+    false
+}
+
+#[tokio::test]
+async fn peddlers_carry_items_out_and_sell_them() {
+    let (pool, created) = new_game(30).await;
+    let (id, token) = (created.game_id, &created.human_token);
+    let ready = play_until(&pool, &created, |game, human| {
+        game.phase == Phase::Peddlers
+            && game.active_seat == Some(HUMAN_SEAT)
+            && !human.moves_done
+            && human.stock.total() > 0
+    })
+    .await;
+    assert!(ready, "the human never had a peddler and a stock");
+    let human = players(&pool, id).await.remove(HUMAN_SEAT as usize);
+    let mut peddler = pawns(&pool, id)
+        .await
+        .into_iter()
+        .find(|pawn| pawn.player_id == human.id && pawn.location == Location::City)
+        .expect("a peddler waits in the city");
+    let order = |to: Location, item: Option<MagicItem>| PawnOrder {
+        pawn_id: peddler.id,
+        to,
+        item,
+    };
+    let gate = Location::Site(SiteId(27));
+    assert!(matches!(
+        move_pawns(&pool, id, token, vec![order(gate, None)]).await,
+        Err(AppError::CargoRequired)
+    ));
+    let far = Location::Site(SiteId(1));
+    assert!(matches!(
+        move_pawns(&pool, id, token, vec![order(far, Some(MagicItem::Toratsa))]).await,
+        Err(AppError::InvalidPawnMove)
+    ));
+
+    // Put the peddler, carrying a pentacle, in a Yaboul monastery: it buys without limit.
+    let monastery = SiteId(5);
+    peddler.location = Location::Site(monastery);
+    peddler.item = Some(MagicItem::Yaboul);
+    let mut conn = pool.acquire().await.unwrap();
+    peddler.save(&mut conn).await.unwrap();
+    let marker = wizard_war::domain::CultMarker::face_up(Cult::Yaboul);
+    wizard_war::db::CultMarkerRecord {
+        site: monastery,
+        marker,
+    }
+    .save(&mut conn, id)
+    .await
+    .unwrap();
+    drop(conn);
+
+    move_pawns(&pool, id, token, Vec::new()).await.unwrap();
+    let view = GameView::load(&pool, id, token).await.unwrap();
+    assert!(
+        view.can_sell_items(),
+        "the peddler may sell where it stands"
+    );
+    assert_eq!(view.trade.sale_choices.len(), 1);
+    let supply = game_record(&pool, id).await.supply;
+    sell_items(&pool, id, token, vec![peddler.id])
+        .await
+        .unwrap();
+
+    let after = players(&pool, id).await.remove(HUMAN_SEAT as usize);
+    assert!(
+        after.money >= human.money + 16_000,
+        "mountain price for a pentacle"
+    );
+    assert!(game_record(&pool, id).await.supply.yaboul > supply.yaboul || after.money > 0);
+    let sold = pawns(&pool, id)
+        .await
+        .into_iter()
+        .find(|pawn| pawn.id == peddler.id)
+        .unwrap();
+    assert_eq!(sold.item, None);
+}
+
+#[tokio::test]
+async fn rebels_reaching_a_pawn_fight_it() {
+    let (pool, created) = new_game(30).await;
+    let (id, token) = (created.game_id, &created.human_token);
+    let ready = play_until(&pool, &created, |game, _| {
+        game.phase == Phase::RebelMovement && game.active_seat == Some(HUMAN_SEAT)
+    })
+    .await;
+    assert!(ready, "the human never had to move rebels");
+    let view = GameView::load(&pool, id, token).await.unwrap();
+    let choice = &view.board.rebel_choices[0];
+    let target = SiteId(choice.destinations[0].site);
+
+    let human = players(&pool, id).await.remove(HUMAN_SEAT as usize);
+    let mut conn = pool.acquire().await.unwrap();
+    PawnRecord::insert(&mut conn, id, human.id, PawnKind::Caravan)
+        .await
+        .unwrap();
+    let mut caravan = PawnRecord::list_for_game(&mut conn, id)
+        .await
+        .unwrap()
+        .into_iter()
+        .last()
+        .unwrap();
+    caravan.location = Location::Site(target);
+    caravan.save(&mut conn).await.unwrap();
+    drop(conn);
+
+    let rebels_before = view
+        .board
+        .sites
+        .iter()
+        .map(|site| site.rebels)
+        .sum::<usize>();
+    move_rebels_first_option(&pool, &created).await;
+    assert_eq!(game_record(&pool, id).await.phase, Phase::RebelFights);
+    assert!(matches!(
+        attack_pawn(&pool, id, token, -1).await,
+        Err(AppError::InvalidFightTarget)
+    ));
+    while game_record(&pool, id).await.phase == Phase::RebelFights {
+        attack_first_option(&pool, &created).await;
+    }
+    let view = GameView::load(&pool, id, token).await.unwrap();
+    let rebels_after = view
+        .board
+        .sites
+        .iter()
+        .map(|site| site.rebels)
+        .sum::<usize>();
+    assert!(
+        rebels_after < rebels_before,
+        "the rebels left after fighting"
+    );
+}
+
+#[tokio::test]
+async fn city_sales_need_the_item_in_stock() {
+    let (pool, created) = new_game(30).await;
+    let (id, token) = (created.game_id, &created.human_token);
+    let ready = play_until(&pool, &created, |game, _| {
+        game.phase == Phase::CitySales && game.active_seat == Some(HUMAN_SEAT)
+    })
+    .await;
+    assert!(ready, "the city never bought anything");
+    let human = players(&pool, id).await.remove(HUMAN_SEAT as usize);
+    let missing = MagicItem::ALL
+        .into_iter()
+        .find(|&item| human.stock.get(item) == 0);
+    if let Some(item) = missing {
+        assert!(matches!(
+            sell_in_city(&pool, id, token, Some(item)).await,
+            Err(AppError::NotInStock)
+        ));
+    }
+    let item = MagicItem::ALL
+        .into_iter()
+        .find(|&item| human.stock.get(item) > 0)
+        .unwrap();
+    let left = game_record(&pool, id).await.city_sales_left;
+    sell_in_city(&pool, id, token, Some(item)).await.unwrap();
+    let after = players(&pool, id).await.remove(HUMAN_SEAT as usize);
+    assert_eq!(after.stock.total(), human.stock.total() - 1);
+    assert_eq!(
+        after.money,
+        human.money + wizard_war::domain::market::city_price(item)
+    );
+    let game = game_record(&pool, id).await;
+    assert!(game.phase != Phase::CitySales || game.city_sales_left < left);
+}
+
+#[tokio::test]
+async fn hall_fanatics_stay_hidden_until_phase_iv_then_leave_at_turn_end() {
+    let (pool, created) = new_game(8).await;
+    let (id, token) = (created.game_id, &created.human_token);
+    let view = GameView::load(&pool, id, token).await.unwrap();
+    let mine = view.available_fanatics()[0].id;
+    announce_fanatic(&pool, id, token, Some(mine))
+        .await
+        .unwrap();
+    let view = GameView::load(&pool, id, token).await.unwrap();
+    let sent = view.city.hall.len();
+    assert!(sent >= 1, "the human's fanatic is in the hall");
+    assert!(
+        view.city
+            .hall
+            .iter()
+            .all(|token| token.image == "/img/token-fanatic-hidden.png")
+    );
+
+    pay_expense(&pool, id, token, 0).await.unwrap();
+    loop {
+        match game_record(&pool, id).await.phase {
+            Phase::Conversions => convert_first_option(&pool, &created).await,
+            Phase::RebelMovement => move_rebels_first_option(&pool, &created).await,
+            Phase::RebelFights => attack_first_option(&pool, &created).await,
+            Phase::Production => produce_first_items(&pool, &created).await,
+            _ => break,
+        }
+    }
+    let view = GameView::load(&pool, id, token).await.unwrap();
+    assert_eq!(view.turn, 1);
+    assert_eq!(
+        view.city.hall.len(),
+        sent,
+        "revealed pawns stay in the hall"
+    );
+    assert!(
+        view.city
+            .hall
+            .iter()
+            .all(|token| token.image != "/img/token-fanatic-hidden.png")
+    );
+
+    while game_record(&pool, id).await.turn == 1 {
+        match game_record(&pool, id).await.phase {
+            Phase::Peddlers => move_and_sell_first_options(&pool, &created).await,
+            Phase::CitySales => sell_first_in_city(&pool, &created).await,
+            Phase::Purchases => buy_a_peddler(&pool, &created).await,
+            phase => panic!("unexpected phase {phase:?}"),
+        }
+    }
+    let view = GameView::load(&pool, id, token).await.unwrap();
+    assert!(view.my_fanatics.iter().all(|record| record.id != mine));
+    assert!(
+        view.city
+            .hall
+            .iter()
+            .all(|token| token.title == "Fanatiques face cachée")
+    );
 }

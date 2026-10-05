@@ -15,6 +15,8 @@ struct GameRow {
     supply_xephis: i64,
     supply_yaboul: i64,
     collective_expense: i64,
+    city_sales_left: i64,
+    city_passes: i64,
     version: i64,
 }
 
@@ -37,6 +39,10 @@ pub struct GameRecord {
     pub supply: ItemCounts,
     /// Écus paid into the collective expense this turn.
     pub collective_expense: i64,
+    /// Items that may still be sold in the city this turn (phase VI).
+    pub city_sales_left: i64,
+    /// Players who passed in a row in phase VI; a full round of passes ends the sales.
+    pub city_passes: i64,
     /// Incremented on every change, so pages know when to refresh.
     pub version: i64,
 }
@@ -58,6 +64,8 @@ impl TryFrom<GameRow> for GameRecord {
             active_seat: row.active_seat,
             supply: ItemCounts::new(row.supply_toratsa, row.supply_xephis, row.supply_yaboul),
             collective_expense: row.collective_expense,
+            city_sales_left: row.city_sales_left,
+            city_passes: row.city_passes,
             version: row.version,
         })
     }
@@ -96,7 +104,7 @@ impl GameRecord {
     pub async fn find(conn: &mut SqliteConnection, id: i64) -> Result<GameRecord, AppError> {
         let row: Option<GameRow> = sqlx::query_as(
             "SELECT id, phase, turn, max_turns, first_seat, active_seat, supply_toratsa, supply_xephis,
-                    supply_yaboul, collective_expense, version
+                    supply_yaboul, collective_expense, city_sales_left, city_passes, version
              FROM games WHERE id = ?",
         )
         .bind(id)
@@ -121,7 +129,8 @@ impl GameRecord {
     pub async fn save(&self, conn: &mut SqliteConnection) -> Result<(), AppError> {
         sqlx::query(
             "UPDATE games SET phase = ?, turn = ?, first_seat = ?, active_seat = ?, supply_toratsa = ?,
-                    supply_xephis = ?, supply_yaboul = ?, collective_expense = ?, version = version + 1
+                    supply_xephis = ?, supply_yaboul = ?, collective_expense = ?, city_sales_left = ?, city_passes = ?,
+                    version = version + 1
              WHERE id = ?",
         )
         .bind(self.phase.as_db_str())
@@ -132,6 +141,8 @@ impl GameRecord {
         .bind(self.supply.xephis)
         .bind(self.supply.yaboul)
         .bind(self.collective_expense)
+        .bind(self.city_sales_left)
+        .bind(self.city_passes)
         .bind(self.id)
         .execute(conn)
         .await?;

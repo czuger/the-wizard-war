@@ -13,6 +13,15 @@
     <label>Nombre de tours
       <input type="number" name="max_turns" value="{{ max_turns }}" min="1" max="{{ max_turns_limit }}">
     </label>
+    <fieldset class="districts">
+      <legend>Quartier de votre laboratoire (couleur de vos pions)</legend>
+      {% for district in districts %}
+      <label class="choice">
+        <input type="radio" name="district" value="{{ district.key }}"{% if district.checked %} checked{% endif %}>
+        <img src="/img/token-caravan-{{ district.key }}.png" alt="" class="pawn-icon"> {{ district.label }}
+      </label>
+      {% endfor %}
+    </fieldset>
     <button type="submit">Commencer la partie</button>
   </form>
 </section>

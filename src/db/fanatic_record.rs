@@ -10,6 +10,7 @@ struct FanaticRow {
     cult: String,
     strength: i64,
     in_hall: bool,
+    revealed: bool,
 }
 
 /// A fanatic pawn as stored in the `fanatics` table.
@@ -23,6 +24,8 @@ pub struct FanaticRecord {
     pub fanatic: Fanatic,
     /// Whether the pawn waits face down in the great hall.
     pub in_hall: bool,
+    /// Whether the pawn lies face up in the hall, after phase IV and until the end of the turn.
+    pub revealed: bool,
 }
 
 impl TryFrom<FanaticRow> for FanaticRecord {
@@ -38,6 +41,7 @@ impl TryFrom<FanaticRow> for FanaticRecord {
             player_id: row.player_id,
             fanatic: Fanatic::new(cult, row.strength),
             in_hall: row.in_hall,
+            revealed: row.revealed,
         })
     }
 }
@@ -68,7 +72,7 @@ impl FanaticRecord {
         player_id: i64,
     ) -> Result<Vec<FanaticRecord>, AppError> {
         let rows: Vec<FanaticRow> = sqlx::query_as(
-            "SELECT id, player_id, cult, strength, in_hall FROM fanatics
+            "SELECT id, player_id, cult, strength, in_hall, revealed FROM fanatics
              WHERE player_id = ? ORDER BY cult, strength DESC, id",
         )
         .bind(player_id)
@@ -83,7 +87,7 @@ impl FanaticRecord {
         game_id: i64,
     ) -> Result<Vec<FanaticRecord>, AppError> {
         let rows: Vec<FanaticRow> = sqlx::query_as(
-            "SELECT id, player_id, cult, strength, in_hall FROM fanatics
+            "SELECT id, player_id, cult, strength, in_hall, revealed FROM fanatics
              WHERE game_id = ? AND in_hall = 1 ORDER BY id",
         )
         .bind(game_id)
@@ -96,6 +100,15 @@ impl FanaticRecord {
     pub async fn move_to_hall(conn: &mut SqliteConnection, id: i64) -> Result<(), AppError> {
         sqlx::query("UPDATE fanatics SET in_hall = 1 WHERE id = ?")
             .bind(id)
+            .execute(conn)
+            .await?;
+        Ok(())
+    }
+
+    /// Turns every pawn of the great hall face up (phase IV).
+    pub async fn reveal_hall(conn: &mut SqliteConnection, game_id: i64) -> Result<(), AppError> {
+        sqlx::query("UPDATE fanatics SET revealed = 1 WHERE game_id = ? AND in_hall = 1")
+            .bind(game_id)
             .execute(conn)
             .await?;
         Ok(())

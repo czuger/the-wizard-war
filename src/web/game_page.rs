@@ -50,6 +50,11 @@ impl GamePage {
         GamePage::lines(&self.view.supply)
     }
 
+    /// French name of the viewing player's district.
+    pub fn my_district(&self) -> &'static str {
+        self.view.me.district.label()
+    }
+
     /// Path of the player's page, which actions are posted under.
     pub fn player_path(&self) -> String {
         format!(

@@ -7,6 +7,7 @@ use crate::error::AppError;
 struct RebelRow {
     id: i64,
     site: i64,
+    must_fight: bool,
 }
 
 /// A rebels pawn on the map, as stored in the `rebels` table.
@@ -16,6 +17,8 @@ pub struct RebelRecord {
     pub id: i64,
     /// Where the pawn stands.
     pub site: SiteId,
+    /// Whether it has just reached peddlers or caravans and still has to fight.
+    pub must_fight: bool,
 }
 
 impl TryFrom<RebelRow> for RebelRecord {
@@ -26,7 +29,11 @@ impl TryFrom<RebelRow> for RebelRecord {
             column: "rebels.site",
             value: row.site.to_string(),
         })?;
-        Ok(RebelRecord { id: row.id, site })
+        Ok(RebelRecord {
+            id: row.id,
+            site,
+            must_fight: row.must_fight,
+        })
     }
 }
 
@@ -51,7 +58,7 @@ impl RebelRecord {
         game_id: i64,
     ) -> Result<Vec<RebelRecord>, AppError> {
         let rows: Vec<RebelRow> =
-            sqlx::query_as("SELECT id, site FROM rebels WHERE game_id = ? ORDER BY id")
+            sqlx::query_as("SELECT id, site, must_fight FROM rebels WHERE game_id = ? ORDER BY id")
                 .bind(game_id)
                 .fetch_all(conn)
                 .await?;
@@ -66,6 +73,29 @@ impl RebelRecord {
     ) -> Result<(), AppError> {
         sqlx::query("UPDATE rebels SET site = ? WHERE id = ?")
             .bind(site.as_db())
+            .bind(id)
+            .execute(conn)
+            .await?;
+        Ok(())
+    }
+
+    /// Marks whether a pawn still has to fight.
+    pub async fn set_must_fight(
+        conn: &mut SqliteConnection,
+        id: i64,
+        must_fight: bool,
+    ) -> Result<(), AppError> {
+        sqlx::query("UPDATE rebels SET must_fight = ? WHERE id = ?")
+            .bind(must_fight)
+            .bind(id)
+            .execute(conn)
+            .await?;
+        Ok(())
+    }
+
+    /// Removes a pawn from the game; it goes back to the box.
+    pub async fn delete(conn: &mut SqliteConnection, id: i64) -> Result<(), AppError> {
+        sqlx::query("DELETE FROM rebels WHERE id = ?")
             .bind(id)
             .execute(conn)
             .await?;

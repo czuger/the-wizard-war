@@ -1,12 +1,13 @@
 use sqlx::{FromRow, SqliteConnection};
 
-use crate::domain::ItemCounts;
 use crate::domain::rules::{STARTING_LABORATORIES, STARTING_MONEY};
+use crate::domain::{District, ItemCounts};
 use crate::error::AppError;
 
 const PLAYER_COLUMNS: &str = "id, game_id, seat, name, token, money, laboratories,
     toratsa_in_production, xephis_in_production, yaboul_in_production,
-    toratsa_in_stock, xephis_in_stock, yaboul_in_stock, turn_expense, announcement_done, expense_done, is_ai";
+    toratsa_in_stock, xephis_in_stock, yaboul_in_stock, turn_expense, announcement_done, expense_done, is_ai,
+    district, moves_done";
 
 #[derive(FromRow)]
 struct PlayerRow {
@@ -27,6 +28,8 @@ struct PlayerRow {
     announcement_done: bool,
     expense_done: bool,
     is_ai: bool,
+    district: String,
+    moves_done: bool,
 }
 
 /// An alchemist as stored in the `players` table.
@@ -58,11 +61,21 @@ pub struct PlayerRecord {
     pub expense_done: bool,
     /// Whether the computer plays this alchemist.
     pub is_ai: bool,
+    /// District of the city holding the player's laboratories; their pawns share its colour.
+    pub district: District,
+    /// Whether the player has moved their pawns in this turn's phase V.
+    pub moves_done: bool,
 }
 
-impl From<PlayerRow> for PlayerRecord {
-    fn from(row: PlayerRow) -> PlayerRecord {
-        PlayerRecord {
+impl TryFrom<PlayerRow> for PlayerRecord {
+    type Error = AppError;
+
+    fn try_from(row: PlayerRow) -> Result<PlayerRecord, AppError> {
+        let district = District::from_key(&row.district).ok_or_else(|| AppError::CorruptData {
+            column: "players.district",
+            value: row.district.clone(),
+        })?;
+        Ok(PlayerRecord {
             id: row.id,
             game_id: row.game_id,
             seat: row.seat,
@@ -84,7 +97,9 @@ impl From<PlayerRow> for PlayerRecord {
             announcement_done: row.announcement_done,
             expense_done: row.expense_done,
             is_ai: row.is_ai,
-        }
+            district,
+            moves_done: row.moves_done,
+        })
     }
 }
 
@@ -93,6 +108,7 @@ impl PlayerRecord {
     ///
     /// # Arguments
     /// * `is_ai` - whether the computer plays this alchemist.
+    /// * `district` - district of the player's laboratories.
     ///
     /// # Returns
     /// The new player's id.
@@ -103,10 +119,11 @@ impl PlayerRecord {
         name: &str,
         token: &str,
         is_ai: bool,
+        district: District,
     ) -> Result<i64, AppError> {
         let result = sqlx::query(
-            "INSERT INTO players (game_id, seat, name, token, money, laboratories, is_ai)
-             VALUES (?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO players (game_id, seat, name, token, money, laboratories, is_ai, district)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
         )
         .bind(game_id)
         .bind(seat)
@@ -115,6 +132,7 @@ impl PlayerRecord {
         .bind(STARTING_MONEY)
         .bind(STARTING_LABORATORIES)
         .bind(is_ai)
+        .bind(district.key())
         .execute(conn)
         .await?;
         Ok(result.last_insert_rowid())
@@ -136,7 +154,7 @@ impl PlayerRecord {
             .bind(token)
             .fetch_optional(conn)
             .await?;
-        row.map(PlayerRecord::from).ok_or(AppError::PlayerNotFound)
+        row.ok_or(AppError::PlayerNotFound)?.try_into()
     }
 
     /// Lists the players of a game by seat.
@@ -150,7 +168,7 @@ impl PlayerRecord {
             .bind(game_id)
             .fetch_all(conn)
             .await?;
-        Ok(rows.into_iter().map(PlayerRecord::from).collect())
+        rows.into_iter().map(PlayerRecord::try_from).collect()
     }
 
     /// Writes every mutable field back.
@@ -159,7 +177,7 @@ impl PlayerRecord {
             "UPDATE players SET money = ?, laboratories = ?,
                     toratsa_in_production = ?, xephis_in_production = ?, yaboul_in_production = ?,
                     toratsa_in_stock = ?, xephis_in_stock = ?, yaboul_in_stock = ?,
-                    turn_expense = ?, announcement_done = ?, expense_done = ?
+                    turn_expense = ?, announcement_done = ?, expense_done = ?, moves_done = ?
              WHERE id = ?",
         )
         .bind(self.money)
@@ -173,6 +191,7 @@ impl PlayerRecord {
         .bind(self.turn_expense)
         .bind(self.announcement_done)
         .bind(self.expense_done)
+        .bind(self.moves_done)
         .bind(self.id)
         .execute(conn)
         .await?;

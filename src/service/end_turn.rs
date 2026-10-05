@@ -1,11 +1,12 @@
 use sqlx::SqliteConnection;
 
-use crate::db::{EventRecord, GameRecord, PlayerRecord};
+use crate::db::{EventRecord, FanaticRecord, GameRecord, PlayerRecord};
 use crate::domain::{Phase, TurnOrder};
 use crate::error::AppError;
 
-/// Closes the turn: reveals the collective expense, resets the players' turn state, then
-/// either starts the next turn with the next first player or ends the game.
+/// Closes the turn: discards the fanatics revealed in the great hall, resets the players'
+/// turn state, then either starts the next turn with
+/// the next first player or ends the game.
 ///
 /// The records are updated in place; the caller saves `game`.
 pub async fn end_turn(
@@ -13,18 +14,17 @@ pub async fn end_turn(
     game: &mut GameRecord,
     players: &mut [PlayerRecord],
 ) -> Result<(), AppError> {
-    let message = format!(
-        "Dépense collective du tour : {} écus.",
-        game.collective_expense
-    );
-    EventRecord::insert(conn, game.id, game.turn, &message).await?;
+    FanaticRecord::discard_hall(conn, game.id).await?;
     for player in players.iter_mut() {
         player.announcement_done = false;
         player.expense_done = false;
+        player.moves_done = false;
         player.turn_expense = 0;
         player.save(conn).await?;
     }
     game.collective_expense = 0;
+    game.city_sales_left = 0;
+    game.city_passes = 0;
     game.active_seat = None;
 
     if game.turn >= game.max_turns {

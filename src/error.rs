@@ -2,7 +2,7 @@
 
 use thiserror::Error;
 
-use crate::domain::ConversionError;
+use crate::domain::{ConversionError, PurchaseError};
 
 /// Everything that can go wrong while handling a request.
 ///
@@ -55,6 +55,9 @@ pub enum AppError {
     /// The number of turns is out of range.
     #[error("Le nombre de tours doit être compris entre 1 et 30.")]
     InvalidTurnCount,
+    /// The district is not one of the city's six.
+    #[error("Choisissez un des six quartiers de la cité.")]
+    InvalidDistrict,
     /// The fanatic is not one the player can send to the hall.
     #[error("Ce fanatique ne vous appartient pas.")]
     FanaticNotAvailable,
@@ -82,6 +85,28 @@ pub enum AppError {
     /// The rebel moves are missing, duplicated or not along a path to a village.
     #[error("Chaque pion rebelle doit avancer d'un village le long d'un chemin.")]
     InvalidRebelMove,
+    /// A rebels pawn may only attack a pawn standing on its village.
+    #[error("Les rebelles ne peuvent attaquer qu'un colporteur ou une caravane de leur village.")]
+    InvalidFightTarget,
+    /// A pawn order is not allowed.
+    #[error(
+        "Déplacement impossible : un colporteur avance d'un lieu, une caravane d'un ou deux, le long des chemins, et un pion arrêté ne bouge pas."
+    )]
+    InvalidPawnMove,
+    /// A pawn leaving the city must carry an item from the player's stock.
+    #[error("Un pion qui quitte la ville doit emporter un objet de votre stock.")]
+    CargoRequired,
+    /// The pawn cannot sell where it stands.
+    #[error(
+        "Ce pion ne peut pas vendre ici : le lieu doit acheter cet objet et, sauf un monastère, n'avoir rien acheté d'autre ce tour-ci."
+    )]
+    InvalidSale,
+    /// The player does not have this item in stock.
+    #[error("Vous n'avez pas cet objet en stock.")]
+    NotInStock,
+    /// The purchase breaks a rule of phase VII.
+    #[error(transparent)]
+    Purchase(#[from] PurchaseError),
 }
 
 impl AppError {

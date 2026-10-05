@@ -17,6 +17,35 @@
 {% else if view.can_pay() %}
   <h2>Dépense collective</h2>
   <p>Glissez secrètement des écus dans l'enveloppe. Le total décide du nombre d'objets vendus en ville.</p>
+  <div class="quota-help" tabindex="0">
+    <span class="quota-help-label">Combien d'objets la ville achète-t-elle ?</span>
+    <div class="quota-help-popup">
+      <table class="quota">
+        <caption>Objets achetés par la ville ({{ view.total_laboratories() }} laboratoires sur le plateau)</caption>
+        <thead>
+          <tr>
+            <th>Laboratoires \ Dépense</th>
+            <th>moins de 700</th>
+            <th>700 à 1 999</th>
+            <th>2 000 à 3 999</th>
+            <th>4 000 à 5 999</th>
+            <th>6 000 à 7 999</th>
+            <th>8 000 et plus</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in view.city_quota_rows() %}
+          <tr{% if row.current %} class="current"{% endif %}>
+            <th>{{ row.first }} à {{ row.last }}</th>
+            {% for quota in row.quotas.iter() %}
+            <td>{{ quota }}</td>
+            {% endfor %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
   <form method="post" action="{{ self.player_path() }}/expense" class="stack">
     <label>Montant (multiple de 100 écus)
       <input type="number" name="amount" value="0" min="0" max="{{ view.me.money }}" step="100">
@@ -62,6 +91,19 @@
     {% endfor %}
     <button type="submit">Déplacer</button>
   </form>
+{% else if view.can_attack() %}
+  {% if let Some(fight) = view.trade.fight %}
+  <h2>Combat des rebelles</h2>
+  <p>Des rebelles arrivent à {{ fight.site }}. Vous jouez en premier : choisissez le pion qu'ils attaquent,
+     même s'il vous appartient. Le dé décide : 1–2 la bagarre se calme, 3–4 le pion perd son objet
+     (ou s'arrête un tour s'il est vide), 5–6 le pion est éliminé. Les rebelles quittent ensuite le jeu.</p>
+  <form method="post" action="{{ self.player_path() }}/fight" class="stack">
+    {% for target in fight.targets %}
+    <label class="choice"><input type="radio" name="pawn" value="{{ target.pawn_id }}"{% if loop.first %} checked{% endif %}> {{ target.label }}</label>
+    {% endfor %}
+    <button type="submit">Attaquer</button>
+  </form>
+  {% endif %}
 {% else if view.can_produce() %}
   <h2>Fabrication</h2>
   <p>Prenez exactement {{ view.required_items() }} objet(s) magique(s) dans la réserve.</p>
@@ -75,6 +117,90 @@
     {% endfor %}
     <button type="submit">Fabriquer</button>
   </form>
+{% else if view.can_move_pawns() %}
+  <h2>Colporteurs et caravanes</h2>
+  <p>Un colporteur avance d'un lieu, une caravane d'un ou deux, le long des chemins. Pour quitter la ville,
+     un pion prend un objet de votre stock et passe par une porte ; il rentre dès qu'il atteint une porte.
+     Un pion qui s'arrête sur des rebelles les combat.</p>
+  <form method="post" action="{{ self.player_path() }}/pawns" class="stack">
+    {% for choice in view.trade.move_choices %}
+    <fieldset>
+      <legend>{{ choice.label }}</legend>
+      <label>Aller à
+        <select name="pawn_{{ choice.pawn_id }}">
+          <option value="">{% if choice.in_city %}Rester en ville{% else %}Rester sur place{% endif %}</option>
+          {% for stop in choice.destinations %}
+          <option value="{{ stop.value }}">{{ stop.label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      {% if choice.in_city %}
+      <label>Emporter
+        <select name="item_{{ choice.pawn_id }}">
+          {% for cargo in view.trade.cargo_options %}
+          <option value="{{ cargo.key }}">{{ cargo.label }} ({{ cargo.count }} en stock)</option>
+          {% endfor %}
+        </select>
+      </label>
+      {% endif %}
+    </fieldset>
+    {% endfor %}
+    <button type="submit">Déplacer</button>
+  </form>
+{% else if view.can_sell_items() %}
+  <h2>Ventes hors les murs</h2>
+  <p>Un lieu n'achète que les objets du culte de son marqueur face visible, et un seul objet par tour,
+     sauf les monastères. Les châteaux achètent aussi les talismans Toratsa.</p>
+  <form method="post" action="{{ self.player_path() }}/sales" class="stack">
+    {% for choice in view.trade.sale_choices %}
+    <label class="choice"><input type="checkbox" name="sell_{{ choice.pawn_id }}"{% if choice.checked %} checked{% endif %}> {{ choice.label }}</label>
+    {% else %}
+    <p>Aucun de vos pions ne peut vendre.</p>
+    {% endfor %}
+    <button type="submit">Valider les ventes</button>
+  </form>
+{% else if view.can_sell_in_city() %}
+  <h2>Ventes intra-muros</h2>
+  <p>La ville achète encore {{ view.city_sales_left }} objet(s) ce tour-ci, un par joueur à tour de rôle.</p>
+  <form method="post" action="{{ self.player_path() }}/city-sale" class="stack">
+    <label class="choice"><input type="radio" name="item" value="" checked> Ne rien vendre</label>
+    {% for cargo in view.trade.cargo_options %}
+    <label class="choice">
+      <input type="radio" name="item" value="{{ cargo.key }}">
+      <img src="/img/talisman-{{ cargo.key }}.jpg" alt="" class="item-icon">
+      {{ cargo.label }} pour {{ cargo.city_price }} écus ({{ cargo.count }} en stock)
+    </label>
+    {% endfor %}
+    <button type="submit">Valider</button>
+  </form>
+{% else if view.can_buy() %}
+  {% if let Some(purchase) = view.trade.purchase %}
+  <h2>Achats</h2>
+  <p>Vous avez {{ purchase.holdings.money }} écus, {{ purchase.holdings.peddlers }} colporteur(s) sur 4
+     et {{ purchase.holdings.caravans }} caravane(s) sur 3. Il reste {{ purchase.holdings.laboratories_left }} laboratoire(s) à vendre.</p>
+  <form method="post" action="{{ self.player_path() }}/purchase" class="stack">
+    <label>Colporteurs à {{ purchase.peddler_price }} écus
+      <input type="number" name="peddlers" value="0" min="0" max="4">
+    </label>
+    <label>Caravanes à {{ purchase.caravan_price }} écus
+      <input type="number" name="caravans" value="0" min="0" max="3">
+    </label>
+    <label>Laboratoires à {{ purchase.laboratory_price }} écus
+      <input type="number" name="laboratories" value="0" min="0" max="{{ purchase.holdings.laboratories_left }}">
+    </label>
+    {% if purchase.holdings.bank_open %}
+    <label>Revendre des colporteurs en ville ({{ purchase.holdings.peddlers_in_city }}) à moitié prix
+      <input type="number" name="sold_peddlers" value="0" min="0" max="{{ purchase.holdings.peddlers_in_city }}">
+    </label>
+    <label>Revendre des caravanes en ville ({{ purchase.holdings.caravans_in_city }}) à moitié prix
+      <input type="number" name="sold_caravans" value="0" min="0" max="{{ purchase.holdings.caravans_in_city }}">
+    </label>
+    {% else %}
+    <p class="hint">La banque ne rachète plus de pions pendant les deux derniers tours.</p>
+    {% endif %}
+    <button type="submit">Acheter</button>
+  </form>
+  {% endif %}
 {% else if view.is_finished() %}
   <h2>Partie terminée</h2>
   <p>Consultez le journal pour connaître le vainqueur.</p>

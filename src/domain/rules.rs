@@ -33,3 +33,12 @@ pub const MARKERS_PER_CULT: i64 = 21;
 
 /// Rebels pawns in the box.
 pub const REBEL_COUNT: i64 = 7;
+
+/// Laboratories in the box: no more can be bought once they are all on the board.
+pub const LABORATORY_COUNT: i64 = 21;
+
+/// Price of a laboratory, paid to the bank in phase VII.
+pub const LABORATORY_PRICE: i64 = 11_000;
+
+/// The bank no longer buys back peddlers and caravans during the last turns of the game.
+pub const BANK_CLOSED_TURNS: i64 = 2;

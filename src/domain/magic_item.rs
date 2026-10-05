@@ -50,12 +50,29 @@ impl MagicItem {
         }
     }
 
+    /// Parses a value made by [`MagicItem::key`].
+    ///
+    /// # Returns
+    /// `None` when the value is not a known item.
+    pub fn from_key(value: &str) -> Option<MagicItem> {
+        MagicItem::ALL.into_iter().find(|item| item.key() == value)
+    }
+
     /// Returns the French name shown to players.
     pub fn label(self) -> &'static str {
         match self {
             MagicItem::Toratsa => "Talisman Toratsa",
             MagicItem::Xephis => "Grimoire Xéphis",
             MagicItem::Yaboul => "Pentacle Yaboul",
+        }
+    }
+
+    /// Returns the French name with an indefinite article, e.g. « un grimoire Xéphis ».
+    pub fn with_article(self) -> &'static str {
+        match self {
+            MagicItem::Toratsa => "un talisman Toratsa",
+            MagicItem::Xephis => "un grimoire Xéphis",
+            MagicItem::Yaboul => "un pentacle Yaboul",
         }
     }
 }
@@ -79,5 +96,6 @@ mod tests {
             assert_eq!(MagicItem::of_cult(cult).cult(), Some(cult));
         }
         assert_eq!(MagicItem::Toratsa.cult(), None);
+        assert_eq!(MagicItem::from_key("yaboul"), Some(MagicItem::Yaboul));
     }
 }

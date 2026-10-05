@@ -2,6 +2,8 @@ use crate::db::RebelRecord;
 use crate::domain::board::{BOARD_HEIGHT, BOARD_WIDTH, SITES, paths, site_by_id};
 use crate::domain::rebel_movement::village_destinations;
 use crate::domain::{BoardState, Conversion, Cult, CultMarker, Site, SiteId};
+use crate::service::city_view::percent;
+use crate::service::trade_view::PawnToken;
 
 /// One site of the map as drawn on the page.
 #[derive(Debug, Clone)]
@@ -18,6 +20,8 @@ pub struct SiteView {
     pub marker: Option<CultMarker>,
     /// Number of rebels pawns on the site.
     pub rebels: usize,
+    /// Peddlers and caravans on the site.
+    pub pawns: Vec<PawnToken>,
 }
 
 impl SiteView {
@@ -42,6 +46,16 @@ impl SiteView {
                 face_up: false,
             }) => "yaboul hidden",
         }
+    }
+
+    /// Path of the marker's token image; face-down markers all share the "?" token.
+    pub fn marker_image(&self) -> Option<&'static str> {
+        let marker = self.marker?;
+        Some(match (marker.cult, marker.face_up) {
+            (_, false) => "/img/token-cult-hidden.png",
+            (Cult::Xephis, true) => "/img/token-cult-xephis.png",
+            (Cult::Yaboul, true) => "/img/token-cult-yaboul.png",
+        })
     }
 }
 
@@ -115,14 +129,19 @@ impl BoardView {
     /// # Arguments
     /// * `conversion_turn` - the current turn when the viewer must convert, else `None`.
     /// * `must_move_rebels` - whether the viewer must move the rebels.
+    /// * `tokens` - the peddlers and caravans on the map.
     pub fn build(
         state: &BoardState,
         rebels: &[RebelRecord],
         conversion_turn: Option<i64>,
         must_move_rebels: bool,
+        tokens: &[PawnToken],
     ) -> BoardView {
         BoardView {
-            sites: SITES.iter().map(|site| site_view(state, site)).collect(),
+            sites: SITES
+                .iter()
+                .map(|site| site_view(state, site, tokens))
+                .collect(),
             paths: paths().filter_map(|(a, b)| path_view(a, b)).collect(),
             conversion_groups: conversion_turn
                 .map(|turn| conversion_groups(state, turn))
@@ -136,9 +155,7 @@ impl BoardView {
     }
 }
 
-fn site_view(state: &BoardState, site: &Site) -> SiteView {
-    let percent =
-        |value: u16, total: u16| format!("{:.2}", f64::from(value) * 100.0 / f64::from(total));
+fn site_view(state: &BoardState, site: &Site, tokens: &[PawnToken]) -> SiteView {
     let marker = state.marker(site.id);
     let marker_text = marker.map_or("aucun marqueur".to_string(), CultMarker::describe);
     SiteView {
@@ -148,6 +165,11 @@ fn site_view(state: &BoardState, site: &Site) -> SiteView {
         top: percent(site.y, BOARD_HEIGHT),
         marker,
         rebels: state.rebels_on(site.id),
+        pawns: tokens
+            .iter()
+            .filter(|token| token.site == site.id)
+            .cloned()
+            .collect(),
     }
 }
 
@@ -170,7 +192,11 @@ fn conversion_groups(state: &BoardState, turn: i64) -> Vec<ConversionGroup> {
             .filter(|conversion| keep(conversion))
             .map(|conversion| ConversionOption {
                 value: conversion.form_value(),
-                label: conversion.label(state.marker(conversion.site())),
+                label: format!(
+                    "{}. {}",
+                    conversion.site().0,
+                    conversion.label(state.marker(conversion.site()))
+                ),
             })
             .collect(),
     };

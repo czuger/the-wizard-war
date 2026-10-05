@@ -5,7 +5,8 @@ use crate::domain::{Cult, Fanatic, FanaticVerdict, TurnOrder, dominant_cult};
 use crate::error::AppError;
 
 /// Phase IV: reveals the great hall, applies the Dominant Fanatic to every laboratory,
-/// moves the surviving production into stock and discards the hall's pawns.
+/// and moves the surviving production into stock. The hall's pawns stay face up until
+/// [`end_turn`](crate::service::end_turn::end_turn) discards them.
 ///
 /// Players are handled in turn order, which matters when the supply runs out of bonus items.
 /// The records are updated in place; the caller saves `game`.
@@ -43,7 +44,7 @@ pub async fn resolve_fanatics(
             EventRecord::insert(conn, game.id, game.turn, &message).await?;
         }
     }
-    FanaticRecord::discard_hall(conn, game.id).await
+    FanaticRecord::reveal_hall(conn, game.id).await
 }
 
 fn seats_in_turn_order(game: &GameRecord, player_count: usize) -> Vec<i64> {

@@ -20,6 +20,15 @@ impl Fanatic {
         format!("Fanatiques {} (force {})", self.cult.label(), self.strength)
     }
 
+    /// Returns the path of the pawn's token image.
+    pub fn image(&self) -> String {
+        format!(
+            "/img/token-fanatic-{}-{}.png",
+            self.cult.as_db_str(),
+            self.strength
+        )
+    }
+
     /// Returns the image sprite index in `img/fanatics.jpg` (Yaboul 1–3 then Xéphis 1–3).
     pub fn sprite_index(&self) -> i64 {
         let cult_offset = match self.cult {

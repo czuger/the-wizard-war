@@ -35,8 +35,25 @@ pub fn build_router(state: AppState, asset_root: &Path) -> Router {
             post(action_handlers::move_rebel_pawns),
         )
         .route(
+            &format!("{player_path}/fight"),
+            post(action_handlers::fight),
+        )
+        .route(
             &format!("{player_path}/production"),
             post(action_handlers::produce),
+        )
+        .route(
+            &format!("{player_path}/pawns"),
+            post(action_handlers::move_pawn_tokens),
+        )
+        .route(&format!("{player_path}/sales"), post(action_handlers::sell))
+        .route(
+            &format!("{player_path}/city-sale"),
+            post(action_handlers::sell_city),
+        )
+        .route(
+            &format!("{player_path}/purchase"),
+            post(action_handlers::purchase),
         )
         .nest_service("/img", ServeDir::new(asset_root.join("img")))
         .nest_service("/static", ServeDir::new(asset_root.join("static")))

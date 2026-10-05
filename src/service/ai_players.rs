@@ -1,18 +1,29 @@
 use sqlx::SqliteConnection;
 
-use crate::db::{FanaticRecord, GameRecord, PlayerRecord, RebelRecord};
+use crate::db::{FanaticRecord, GameRecord, PawnRecord, PlayerRecord, RebelRecord, SaleRecord};
 use crate::domain::ai_strategy::{
     choose_announcement, choose_conversion, choose_expense, choose_production, preferred_cult,
 };
+use crate::domain::ai_trading::{
+    MovablePawn, choose_city_sale, choose_fight_target, choose_pawn_moves, choose_purchase,
+};
+use crate::domain::board::site_by_id;
+use crate::domain::market::buys_without_limit;
 use crate::domain::rebel_movement::random_destination;
 use crate::domain::{Fanatic, Phase};
 use crate::error::AppError;
 use crate::service::announce_fanatic::record_announcement;
 use crate::service::board_loader::load_board_state;
+use crate::service::city_sales::record_city_sale;
 use crate::service::convert_site::record_conversion;
+use crate::service::move_pawns::record_pawn_moves;
 use crate::service::move_rebels::{RebelMove, record_rebel_moves};
+use crate::service::pawn_rules::{is_movable, sale_offer};
 use crate::service::pay_expense::record_expense;
 use crate::service::produce_items::{record_production, required_items};
+use crate::service::purchases::{holdings_of, record_purchase};
+use crate::service::rebel_fights::{pending_fight, record_rebel_attack};
+use crate::service::sell_items::record_sales;
 
 /// Lets the computer-controlled alchemists act until the human player has to play or the
 /// game is over.
@@ -34,7 +45,15 @@ pub async fn play_ai_players(
             }
             Phase::Conversions => convert(conn, game, &player).await?,
             Phase::RebelMovement => move_rebels(conn, game, &player).await?,
+            Phase::RebelFights => attack(conn, game, &player).await?,
             Phase::Production => produce(conn, game, &mut player).await?,
+            Phase::Peddlers if !player.moves_done => move_pawns(conn, game, &mut player).await?,
+            Phase::Peddlers => sell(conn, game, &mut player).await?,
+            Phase::CitySales => {
+                let item = choose_city_sale(player.stock);
+                record_city_sale(conn, game, &mut player, item).await?;
+            }
+            Phase::Purchases => buy(conn, game, &mut player).await?,
             Phase::Finished => break,
         }
     }
@@ -52,9 +71,13 @@ async fn next_ai_player(
             && match game.phase {
                 Phase::Announcements => !player.announcement_done,
                 Phase::Expenses => !player.expense_done,
-                Phase::Conversions | Phase::RebelMovement | Phase::Production => {
-                    game.active_seat == Some(player.seat)
-                }
+                Phase::Conversions
+                | Phase::RebelMovement
+                | Phase::RebelFights
+                | Phase::Production
+                | Phase::Peddlers
+                | Phase::CitySales
+                | Phase::Purchases => game.active_seat == Some(player.seat),
                 Phase::Finished => false,
             }
     }))
@@ -132,4 +155,79 @@ fn random_moves(rebels: &[RebelRecord]) -> Vec<RebelMove> {
             })
         })
         .collect()
+}
+
+/// Sends the pending rebels pawn against a rival's peddler or caravan, if there is one.
+async fn attack(
+    conn: &mut SqliteConnection,
+    game: &mut GameRecord,
+    player: &PlayerRecord,
+) -> Result<(), AppError> {
+    let targets: Vec<(i64, bool)> = pending_fight(conn, game.id)
+        .await?
+        .map(|pending| pending.targets)
+        .unwrap_or_default()
+        .iter()
+        .map(|pawn| (pawn.id, pawn.player_id == player.id))
+        .collect();
+    let target = choose_fight_target(&targets, &mut rand::rng()).ok_or(AppError::WrongPhase)?;
+    record_rebel_attack(conn, game, player, target).await
+}
+
+/// Moves the AI's pawns toward the best buyers, or home.
+async fn move_pawns(
+    conn: &mut SqliteConnection,
+    game: &mut GameRecord,
+    player: &mut PlayerRecord,
+) -> Result<(), AppError> {
+    let movable: Vec<MovablePawn> = PawnRecord::list_for_game(conn, game.id)
+        .await?
+        .into_iter()
+        .filter(|pawn| pawn.player_id == player.id && is_movable(pawn, game.turn, &player.stock))
+        .map(|pawn| MovablePawn {
+            id: pawn.id,
+            kind: pawn.kind,
+            location: pawn.location,
+            item: pawn.item,
+        })
+        .collect();
+    let board = load_board_state(conn, game.id).await?;
+    let orders = choose_pawn_moves(&board, &movable, player.stock);
+    record_pawn_moves(conn, game, player, &orders).await
+}
+
+/// Sells every item the AI's pawns can sell where they stand.
+async fn sell(
+    conn: &mut SqliteConnection,
+    game: &mut GameRecord,
+    player: &mut PlayerRecord,
+) -> Result<(), AppError> {
+    let board = load_board_state(conn, game.id).await?;
+    let mut sold = SaleRecord::sites_sold(conn, game.id, game.turn).await?;
+    let pawns = PawnRecord::list_for_game(conn, game.id).await?;
+    let mut sellers = Vec::new();
+    for pawn in pawns.iter().filter(|pawn| pawn.player_id == player.id) {
+        if sale_offer(pawn, &board, &sold).is_none() {
+            continue;
+        }
+        sellers.push(pawn.id);
+        let site = pawn.location.site().and_then(site_by_id);
+        if let Some(site) = site.filter(|site| !buys_without_limit(site)) {
+            sold.push(site.id);
+        }
+    }
+    record_sales(conn, game, player, &sellers).await
+}
+
+/// Buys at most one pawn or laboratory.
+async fn buy(
+    conn: &mut SqliteConnection,
+    game: &mut GameRecord,
+    player: &mut PlayerRecord,
+) -> Result<(), AppError> {
+    let players = PlayerRecord::list_for_game(conn, game.id).await?;
+    let pawns = PawnRecord::list_for_game(conn, game.id).await?;
+    let holdings = holdings_of(game, player, &players, &pawns);
+    let purchase = choose_purchase(&holdings, player.laboratories);
+    record_purchase(conn, game, player, purchase).await
 }

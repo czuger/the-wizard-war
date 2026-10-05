@@ -2,12 +2,13 @@ use std::collections::BTreeSet;
 
 use sqlx::{SqliteConnection, SqlitePool};
 
-use crate::db::{EventRecord, GameRecord, PlayerRecord, RebelRecord};
+use crate::db::{EventRecord, GameRecord, PawnRecord, PlayerRecord, RebelRecord};
 use crate::domain::board::site_by_id;
 use crate::domain::rebel_movement::village_destinations;
-use crate::domain::{Phase, SiteId};
+use crate::domain::{Location, Phase, SiteId};
 use crate::error::AppError;
 use crate::service::player_action::PlayerAction;
+use crate::service::rebel_fights::continue_rebel_fights;
 use crate::service::write_transaction::begin_write;
 
 /// Where the first player sends one rebels pawn.
@@ -21,7 +22,7 @@ pub struct RebelMove {
 
 /// Phase II.2: the turn's first player moves every rebels pawn one village along a path.
 ///
-/// Production (phase III) follows.
+/// Rebels reaching peddlers or caravans then fight them; production (phase III) follows.
 ///
 /// # Arguments
 /// * `moves` - one move for each pawn that can move; pawns with no village nearby stay.
@@ -64,7 +65,7 @@ pub(crate) async fn start_rebel_movement(
 }
 
 /// Records the rebel moves of the first player of a game in the rebel movement phase, then
-/// starts production.
+/// starts the fights, or production when there is none.
 ///
 /// The caller saves `game`.
 pub(crate) async fn record_rebel_moves(
@@ -78,6 +79,7 @@ pub(crate) async fn record_rebel_moves(
     }
     let rebels = RebelRecord::list_for_game(conn, game.id).await?;
     check_moves(&rebels, moves)?;
+    let pawns = PawnRecord::list_for_game(conn, game.id).await?;
     for rebel_move in moves {
         let from = rebels
             .iter()
@@ -90,11 +92,14 @@ pub(crate) async fn record_rebel_moves(
             site_name(Some(rebel_move.to))
         );
         EventRecord::insert(conn, game.id, game.turn, &message).await?;
+        let meets_pawns = pawns
+            .iter()
+            .any(|pawn| pawn.location == Location::Site(rebel_move.to));
+        if meets_pawns {
+            RebelRecord::set_must_fight(conn, rebel_move.rebel_id, true).await?;
+        }
     }
-    // Fights against peddlers and caravans will be resolved here once phase V exists.
-    game.phase = Phase::Production;
-    game.active_seat = Some(game.first_seat);
-    Ok(())
+    continue_rebel_fights(conn, game).await
 }
 
 /// Checks that every pawn able to move gets exactly one move, to an adjacent village.

@@ -9,8 +9,16 @@ pub enum Phase {
     Conversions,
     /// Phase II.2: the turn's first player moves every rebels pawn.
     RebelMovement,
+    /// Phase II.2: the turn's first player picks the pawn each arriving rebels pawn attacks.
+    RebelFights,
     /// Phase III: players take magic items from the supply one after another.
     Production,
+    /// Phase V: players move their peddlers and caravans, then sell, one after another.
+    Peddlers,
+    /// Phase VI: players sell items from their stock in the city, one at a time, in turns.
+    CitySales,
+    /// Phase VII: players buy pawns and laboratories from the bank one after another.
+    Purchases,
     /// The last turn is over.
     Finished,
 }
@@ -23,7 +31,11 @@ impl Phase {
             Phase::Expenses => "expenses",
             Phase::Conversions => "conversions",
             Phase::RebelMovement => "rebel_movement",
+            Phase::RebelFights => "rebel_fights",
             Phase::Production => "production",
+            Phase::Peddlers => "peddlers",
+            Phase::CitySales => "city_sales",
+            Phase::Purchases => "purchases",
             Phase::Finished => "finished",
         }
     }
@@ -38,7 +50,11 @@ impl Phase {
             "expenses" => Some(Phase::Expenses),
             "conversions" => Some(Phase::Conversions),
             "rebel_movement" => Some(Phase::RebelMovement),
+            "rebel_fights" => Some(Phase::RebelFights),
             "production" => Some(Phase::Production),
+            "peddlers" => Some(Phase::Peddlers),
+            "city_sales" => Some(Phase::CitySales),
+            "purchases" => Some(Phase::Purchases),
             "finished" => Some(Phase::Finished),
             _ => None,
         }
@@ -51,7 +67,11 @@ impl Phase {
             Phase::Expenses => "Phase I — Dépenses",
             Phase::Conversions => "Phase II — Conversions",
             Phase::RebelMovement => "Phase II — Déplacement des rebelles",
+            Phase::RebelFights => "Phase II — Combats des rebelles",
             Phase::Production => "Phase III — Fabrication d'objets magiques",
+            Phase::Peddlers => "Phase V — Colporteurs et caravanes",
+            Phase::CitySales => "Phase VI — Ventes intra-muros",
+            Phase::Purchases => "Phase VII — Achats",
             Phase::Finished => "Partie terminée",
         }
     }
@@ -68,7 +88,11 @@ mod tests {
             Phase::Expenses,
             Phase::Conversions,
             Phase::RebelMovement,
+            Phase::RebelFights,
             Phase::Production,
+            Phase::Peddlers,
+            Phase::CitySales,
+            Phase::Purchases,
             Phase::Finished,
         ] {
             assert_eq!(Phase::from_db_str(phase.as_db_str()), Some(phase));

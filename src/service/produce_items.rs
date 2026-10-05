@@ -3,14 +3,15 @@ use sqlx::{SqliteConnection, SqlitePool};
 use crate::db::{EventRecord, GameRecord, PlayerRecord};
 use crate::domain::{ItemCounts, Phase, TurnOrder};
 use crate::error::AppError;
-use crate::service::end_turn::end_turn;
+use crate::service::peddler_turns::start_peddlers;
 use crate::service::player_action::PlayerAction;
 use crate::service::resolve_fanatics::resolve_fanatics;
 use crate::service::write_transaction::begin_write;
 
 /// Phase III: the active player secretly takes items from the supply, one per laboratory.
 ///
-/// After the last player of the turn, the fanatics act (phase IV) and the turn ends.
+/// After the last player of the turn, the fanatics act (phase IV) and the peddlers and
+/// caravans move (phase V).
 ///
 /// # Arguments
 /// * `items` - how many items of each kind the player takes.
@@ -34,8 +35,8 @@ pub async fn produce_items(
     PlayerAction::finish(tx, game).await
 }
 
-/// Records the production of the active player of a game in the production phase,
-/// and closes the turn after the last one.
+/// Records the production of the active player of a game in the production phase; after
+/// the last one, resolves the fanatics and starts phase V.
 ///
 /// The players are saved; the caller saves `game`.
 pub(crate) async fn record_production(
@@ -70,7 +71,7 @@ pub(crate) async fn record_production(
     game.active_seat = order.next_after(player.seat);
     if game.active_seat.is_none() {
         resolve_fanatics(conn, game, &mut players).await?;
-        end_turn(conn, game, &mut players).await?;
+        start_peddlers(conn, game).await?;
     }
     Ok(())
 }

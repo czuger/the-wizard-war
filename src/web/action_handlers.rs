@@ -7,10 +7,14 @@ use axum::http::StatusCode;
 use axum::response::{Html, IntoResponse, Redirect, Response};
 use serde::Deserialize;
 
-use crate::domain::{Conversion, ConversionError, ItemCounts, SiteId};
+use crate::domain::{
+    Conversion, ConversionError, ItemCounts, Location, MagicItem, PawnOrder, Purchase,
+    PurchaseError, SiteId,
+};
 use crate::error::AppError;
 use crate::service::{
-    GameView, RebelMove, announce_fanatic, convert_site, move_rebels, pay_expense, produce_items,
+    GameView, RebelMove, announce_fanatic, attack_pawn, buy_from_bank, convert_site, move_pawns,
+    move_rebels, pay_expense, produce_items, sell_in_city, sell_items,
 };
 use crate::web::app_state::AppState;
 use crate::web::game_page::GamePage;
@@ -47,8 +51,47 @@ pub struct ConversionForm {
     conversion: String,
 }
 
+/// The fight form: the pawn the rebels attack.
+#[derive(Debug, Deserialize)]
+pub struct FightForm {
+    #[serde(default)]
+    pawn: String,
+}
+
+/// The city sale form: an item key, or an empty value to pass.
+#[derive(Debug, Deserialize)]
+pub struct CitySaleForm {
+    #[serde(default)]
+    item: String,
+}
+
+/// The purchase form: how many of each thing to buy or sell back.
+#[derive(Debug, Deserialize)]
+pub struct PurchaseForm {
+    #[serde(default)]
+    peddlers: String,
+    #[serde(default)]
+    caravans: String,
+    #[serde(default)]
+    laboratories: String,
+    #[serde(default)]
+    sold_peddlers: String,
+    #[serde(default)]
+    sold_caravans: String,
+}
+
 /// Prefix of the rebel form's fields, followed by the pawn's id; the value is a site id.
 const REBEL_FIELD_PREFIX: &str = "rebel_";
+
+/// Prefix of the pawn form's destination fields, followed by the pawn's id; the value is a
+/// [`Location::form_value`], or empty to stay.
+const PAWN_FIELD_PREFIX: &str = "pawn_";
+
+/// Prefix of the pawn form's cargo fields, followed by the pawn's id; the value is an item key.
+const ITEM_FIELD_PREFIX: &str = "item_";
+
+/// Prefix of the sale form's checkboxes, followed by the pawn's id.
+const SELL_FIELD_PREFIX: &str = "sell_";
 
 /// `POST …/announcement`
 pub async fn announce(
@@ -126,6 +169,117 @@ pub async fn move_rebel_pawns(
         Err(error) => Err(error),
     };
     respond(&state, game_id, &token, result).await
+}
+
+/// `POST …/fight`
+pub async fn fight(
+    State(state): State<AppState>,
+    Path((game_id, token)): Path<(i64, String)>,
+    Form(form): Form<FightForm>,
+) -> Result<Response, AppError> {
+    let result = match form.pawn.trim().parse() {
+        Ok(pawn_id) => attack_pawn(&state.pool, game_id, &token, pawn_id).await,
+        Err(_) => Err(AppError::InvalidFightTarget),
+    };
+    respond(&state, game_id, &token, result).await
+}
+
+/// `POST …/pawns`
+pub async fn move_pawn_tokens(
+    State(state): State<AppState>,
+    Path((game_id, token)): Path<(i64, String)>,
+    Form(form): Form<HashMap<String, String>>,
+) -> Result<Response, AppError> {
+    let result = match parse_pawn_orders(&form) {
+        Ok(orders) => move_pawns(&state.pool, game_id, &token, orders).await,
+        Err(error) => Err(error),
+    };
+    respond(&state, game_id, &token, result).await
+}
+
+/// `POST …/sales`
+pub async fn sell(
+    State(state): State<AppState>,
+    Path((game_id, token)): Path<(i64, String)>,
+    Form(form): Form<HashMap<String, String>>,
+) -> Result<Response, AppError> {
+    let pawn_ids: Result<Vec<i64>, AppError> = form
+        .keys()
+        .filter_map(|key| key.strip_prefix(SELL_FIELD_PREFIX))
+        .map(|id| id.parse().map_err(|_| AppError::InvalidSale))
+        .collect();
+    let result = match pawn_ids {
+        Ok(mut ids) => {
+            ids.sort_unstable();
+            sell_items(&state.pool, game_id, &token, ids).await
+        }
+        Err(error) => Err(error),
+    };
+    respond(&state, game_id, &token, result).await
+}
+
+/// `POST …/city-sale`
+pub async fn sell_city(
+    State(state): State<AppState>,
+    Path((game_id, token)): Path<(i64, String)>,
+    Form(form): Form<CitySaleForm>,
+) -> Result<Response, AppError> {
+    let item = match form.item.trim() {
+        "" => Ok(None),
+        key => MagicItem::from_key(key)
+            .map(Some)
+            .ok_or(AppError::NotInStock),
+    };
+    let result = match item {
+        Ok(item) => sell_in_city(&state.pool, game_id, &token, item).await,
+        Err(error) => Err(error),
+    };
+    respond(&state, game_id, &token, result).await
+}
+
+/// `POST …/purchase`
+pub async fn purchase(
+    State(state): State<AppState>,
+    Path((game_id, token)): Path<(i64, String)>,
+    Form(form): Form<PurchaseForm>,
+) -> Result<Response, AppError> {
+    let result = match parse_purchase(&form) {
+        Ok(purchase) => buy_from_bank(&state.pool, game_id, &token, purchase).await,
+        Err(error) => Err(error),
+    };
+    respond(&state, game_id, &token, result).await
+}
+
+fn parse_pawn_orders(form: &HashMap<String, String>) -> Result<Vec<PawnOrder>, AppError> {
+    let mut orders: Vec<PawnOrder> = form
+        .iter()
+        .filter_map(|(key, value)| Some((key.strip_prefix(PAWN_FIELD_PREFIX)?, value.trim())))
+        .filter(|(_, value)| !value.is_empty())
+        .map(|(id, value)| {
+            let pawn_id: i64 = id.parse().map_err(|_| AppError::InvalidPawnMove)?;
+            let to = Location::from_form_value(value).ok_or(AppError::InvalidPawnMove)?;
+            let item = form
+                .get(&format!("{ITEM_FIELD_PREFIX}{pawn_id}"))
+                .map(|key| key.trim())
+                .filter(|key| !key.is_empty())
+                .map(|key| MagicItem::from_key(key).ok_or(AppError::NotInStock))
+                .transpose()?;
+            Ok(PawnOrder { pawn_id, to, item })
+        })
+        .collect::<Result<_, AppError>>()?;
+    orders.sort_by_key(|order| order.pawn_id);
+    Ok(orders)
+}
+
+fn parse_purchase(form: &PurchaseForm) -> Result<Purchase, AppError> {
+    let count = |value: &str| parse_count(value, AppError::Purchase(PurchaseError::Negative));
+    Ok(Purchase {
+        peddlers: count(&form.peddlers)?,
+        caravans: count(&form.caravans)?,
+        laboratories: count(&form.laboratories)?,
+        sold_peddlers: count(&form.sold_peddlers)?,
+        sold_caravans: count(&form.sold_caravans)?,
+    })
 }
 
 fn parse_rebel_moves(form: &HashMap<String, String>) -> Result<Vec<RebelMove>, AppError> {

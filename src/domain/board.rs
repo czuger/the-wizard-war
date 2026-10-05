@@ -1,6 +1,6 @@
 //! The map of the county of Arghtal, transcribed from `img/board.jpg` (1055 × 867 pixels).
 //!
-//! Paths to the city gates are left out: nothing uses them before phase V.
+//! The city has one gate in front of each village of the outskirts (see [`GATE_VILLAGES`]).
 
 use crate::domain::SiteKind::{Castle, Monastery, Village};
 use crate::domain::Zone::{Countryside, Mountain, Outskirts};
@@ -11,6 +11,9 @@ pub const BOARD_WIDTH: u16 = 1055;
 
 /// Height of `img/board.jpg`, in pixels.
 pub const BOARD_HEIGHT: u16 = 867;
+
+/// Centre of the great hall, in the middle of the city, in pixels of `img/board.jpg`.
+pub const HALL_POSITION: (u16, u16) = (839, 572);
 
 const fn site(
     id: u8,
@@ -143,6 +146,16 @@ static PATHS: [(u8, u8); 44] = [
     (31, 32),
 ];
 
+/// Villages of the outskirts each joined by a path to a gate of the city.
+pub static GATE_VILLAGES: [SiteId; 6] = [
+    SiteId(27),
+    SiteId(28),
+    SiteId(29),
+    SiteId(30),
+    SiteId(31),
+    SiteId(32),
+];
+
 /// Returns the site with this id, if the board has one.
 pub fn site_by_id(id: SiteId) -> Option<&'static Site> {
     SITES.iter().find(|site| site.id == id)
@@ -214,6 +227,13 @@ mod tests {
             }
         }
         assert_eq!(reached.len(), SITES.len());
+    }
+
+    #[test]
+    fn gates_open_on_the_outskirts() {
+        for id in GATE_VILLAGES {
+            assert_eq!(site_by_id(id).map(|site| site.zone), Some(Outskirts));
+        }
     }
 
     #[test]

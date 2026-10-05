@@ -8,16 +8,35 @@
       {% endfor %}
     </svg>
     {% for site in view.board.sites %}
-    <span class="site {{ site.marker_class() }}" style="left: {{ site.left }}%; top: {{ site.top }}%" title="{{ site.title }}">
-      {{ site.id }}{% if site.rebels > 0 %}<span class="rebels" title="Rebelles">⚔{{ site.rebels }}</span>{% endif %}
+    <span class="site" style="left: {{ site.left }}%; top: {{ site.top }}%" title="{{ site.title }}">
+      {% if let Some(image) = site.marker_image() %}<img src="{{ image }}" alt="" class="marker-token">{% endif %}
+      <span class="site-number {{ site.marker_class() }}">{{ site.id }}</span>
+      {% if site.rebels > 0 %}<span class="site-rebels" title="Rebelles : {{ site.rebels }}"><img src="/img/token-rebels.png" alt="Rebelles" class="rebel-token">{% if site.rebels > 1 %}<span class="rebel-count">×{{ site.rebels }}</span>{% endif %}</span>{% endif %}
+      {% if !site.pawns.is_empty() %}<span class="site-pawns">{% for pawn in site.pawns %}<img src="{{ pawn.image }}" alt="{{ pawn.title }}" title="{{ pawn.title }}">{% endfor %}</span>{% endif %}
     </span>
     {% endfor %}
+    {% for district in view.city.districts %}
+    {% if district.laboratories > 0 %}
+    <span class="district-labs" style="left: {{ district.left }}%; top: {{ district.top }}%" title="{{ district.title }}">
+      {% for index in 0..district.laboratories %}<img src="/img/token-laboratory.png" alt="Laboratoire {{ index + 1 }}">{% endfor %}
+    </span>
+    {% endif %}
+    {% endfor %}
+    {% if !view.city.hall.is_empty() %}
+    <span class="hall" style="left: {{ view.city.hall_left }}%; top: {{ view.city.hall_top }}%" title="Grande salle">
+      {% for token in view.city.hall %}<img src="{{ token.image }}" alt="{{ token.title }}" title="{{ token.title }}">{% endfor %}
+    </span>
+    {% endif %}
   </div>
   <p class="hint board-legend">
-    <span class="site legend unmarked">n</span> sans marqueur
-    <span class="site legend xephis">n</span> Xéphis
-    <span class="site legend yaboul">n</span> Yaboul
-    <span class="site legend xephis hidden">n</span> face cachée
-    <span class="rebels legend">⚔</span> rebelles. Survolez un lieu pour voir son nom.
+    <span class="site-number legend unmarked">n</span> sans marqueur
+    <img src="/img/token-cult-xephis.png" alt="" class="pawn-icon"> Xéphis
+    <img src="/img/token-cult-yaboul.png" alt="" class="pawn-icon"> Yaboul
+    <img src="/img/token-cult-hidden.png" alt="" class="pawn-icon"> face cachée (numéro à la couleur du culte)
+    <img src="/img/token-rebels.png" alt="" class="pawn-icon"> rebelles,
+    <img src="/img/token-peddler-white.png" alt="" class="pawn-icon"> colporteurs et caravanes,
+    <img src="/img/token-laboratory.png" alt="" class="pawn-icon"> laboratoires (dans le quartier de leur alchimiste),
+    <img src="/img/token-fanatic-hidden.png" alt="" class="fanatic-icon"> fanatiques dans la grande salle (révélés en phase IV).
+    La cité a une porte devant chaque village des faubourgs (27 à 32). Survolez un lieu pour voir son nom.
   </p>
 </section>
