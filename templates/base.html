@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}La guerre des magiciens{% endblock %}</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body {% block body_attrs %}{% endblock %}>
+  <header class="site-header">
+    <a href="/" class="site-title">La guerre des magiciens</a>
+  </header>
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

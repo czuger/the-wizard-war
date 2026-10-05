@@ -1,0 +1,85 @@
+:root {
+  --paper: #f6efe0;
+  --ink: #2b2118;
+  --accent: #7a2e1d;
+  --panel: #fffaf0;
+  --border: #d8c7a5;
+  --muted: #7c6b55;
+  --error-bg: #fbe3df;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: Georgia, "Times New Roman", serif;
+  line-height: 1.4;
+}
+
+main { max-width: 1100px; margin: 0 auto; padding: 16px; }
+
+.site-header { background: var(--accent); padding: 12px 16px; }
+.site-title { color: #fff; text-decoration: none; font-size: 1.4rem; font-weight: bold; }
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+}
+
+h1, h2, h3 { margin: 0 0 8px; color: var(--accent); }
+h1 { font-size: 1.4rem; }
+h2 { font-size: 1.15rem; }
+h3 { font-size: 1rem; }
+
+.layout { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 760px) { .layout { grid-template-columns: 1fr; } }
+
+.status-bar { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; }
+.status-bar h1, .status-bar p { margin: 0; }
+
+.error { background: var(--error-bg); border-left: 4px solid var(--accent); padding: 8px 12px; }
+.hint { color: var(--muted); font-size: 0.9rem; }
+
+.stack { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+fieldset { border: 1px solid var(--border); display: flex; flex-direction: column; gap: 6px; }
+label { display: flex; gap: 8px; align-items: center; }
+input[type="text"], input[type="number"] { padding: 4px 6px; border: 1px solid var(--border); border-radius: 4px; }
+input[type="number"] { width: 6rem; }
+button {
+  background: var(--accent); color: #fff; border: 0; border-radius: 4px;
+  padding: 8px 16px; font: inherit; cursor: pointer;
+}
+button:hover { filter: brightness(1.15); }
+
+.player-links li { margin-bottom: 6px; word-break: break-all; }
+
+.resources { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.coin-icon, .laboratory-icon {
+  display: inline-block; width: 24px; height: 24px; background-size: contain; background-repeat: no-repeat;
+}
+.coin-icon { background-image: url("/img/coin-stack-gold-icon.png"); }
+.laboratory-icon { background-image: url("/img/laboratory.jpg"); }
+
+.items, .fanatics, .log { list-style: none; padding: 0; margin: 0; }
+.items li, .fanatics li { display: flex; gap: 8px; align-items: center; margin-bottom: 4px; }
+.item-icon { width: 32px; height: 32px; }
+
+.fanatic-token {
+  display: inline-block; width: 89px; height: 23px; flex-shrink: 0;
+  background-image: url("/img/fanatics.jpg");
+}
+.fanatics .in-hall { opacity: 0.6; font-style: italic; }
+
+.players { width: 100%; border-collapse: collapse; }
+.players th, .players td { text-align: left; padding: 4px 6px; border-bottom: 1px solid var(--border); }
+.players tr.me { font-weight: bold; }
+.players .status { color: var(--muted); font-style: italic; font-weight: normal; }
+
+.log { max-height: 320px; overflow-y: auto; }
+.log li { padding: 3px 0; border-bottom: 1px dotted var(--border); }
+.log-turn { color: var(--muted); font-size: 0.85rem; margin-right: 4px; }

@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}Tour {{ view.turn }} — La guerre des magiciens{% endblock %}
+{% block body_attrs %}data-game-id="{{ view.game_id }}" data-version="{{ view.version }}"{% endblock %}
+{% block content %}
+<section class="panel status-bar">
+  <h1>{{ view.phase.label() }}</h1>
+  {% if !view.is_finished() %}<p>Tour {{ view.turn }} / {{ view.max_turns }}</p>{% endif %}
+</section>
+
+{% if let Some(error) = error %}<p class="error panel">{{ error }}</p>{% endif %}
+
+<div class="layout">
+  <div class="column">
+    {% include "game_action.html" %}
+
+    <section class="panel">
+      <h2>Mon laboratoire — {{ view.me.name }}</h2>
+      <p class="resources">
+        <span class="coin-icon"></span> {{ view.me.money }} écus
+        <span class="laboratory-icon"></span> {{ view.me.laboratories }} laboratoire(s)
+      </p>
+      <h3>Stock</h3>
+      <ul class="items">
+        {% for line in self.stock_lines() %}
+        <li><img src="/img/talisman-{{ line.key }}.jpg" alt="" class="item-icon"> {{ line.label }} : {{ line.count }}</li>
+        {% endfor %}
+      </ul>
+      <h3>Mes fanatiques</h3>
+      <ul class="fanatics">
+        {% for record in view.my_fanatics %}
+        <li class="{% if record.in_hall %}in-hall{% endif %}">
+          <span class="fanatic-token" style="background-position: 0 -{{ record.fanatic.sprite_index() * 23 }}px"></span>
+          {{ record.fanatic.label() }}{% if record.in_hall %} — dans la grande salle{% endif %}
+        </li>
+        {% else %}
+        <li>Aucun fanatique.</li>
+        {% endfor %}
+      </ul>
+    </section>
+  </div>
+
+  <div class="column">
+    <section class="panel">
+      <h2>Alchimistes</h2>
+      <table class="players">
+        <thead><tr><th>Nom</th><th>Écus</th><th>Labos</th><th>Stock</th><th></th></tr></thead>
+        <tbody>
+          {% for player in view.players %}
+          <tr class="{% if player.is_me %}me{% endif %}">
+            <td>{% if player.is_first %}★ {% endif %}{{ player.name }}</td>
+            <td>{{ player.money }}</td>
+            <td>{{ player.laboratories }}</td>
+            <td>{{ player.stock_total }}</td>
+            <td class="status">{{ player.status }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <p class="hint">★ premier joueur du tour. Fanatiques dans la grande salle : {{ view.hall_count }}.</p>
+    </section>
+
+    <section class="panel">
+      <h2>Réserve de la banque</h2>
+      <ul class="items">
+        {% for line in self.supply_lines() %}
+        <li><img src="/img/talisman-{{ line.key }}.jpg" alt="" class="item-icon"> {{ line.label }} : {{ line.count }}</li>
+        {% endfor %}
+      </ul>
+    </section>
+
+    <section class="panel">
+      <h2>Journal</h2>
+      <ol class="log">
+        {% for event in view.events %}
+        <li><span class="log-turn">T{{ event.turn }}</span> {{ event.message }}</li>
+        {% endfor %}
+      </ol>
+    </section>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}<script src="/static/poll.js"></script>{% endblock %}

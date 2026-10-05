@@ -1,0 +1,46 @@
+<section class="panel action">
+{% if view.can_announce() %}
+  <h2>Annonce</h2>
+  <p>Vous pouvez envoyer un de vos fanatiques, face cachée, dans la grande salle.
+     En phase IV, la Dominante Fanatique pillera les laboratoires.</p>
+  <form method="post" action="{{ self.player_path() }}/announcement" class="stack">
+    <label class="choice"><input type="radio" name="fanatic" value="" checked> N'envoyer aucun fanatique</label>
+    {% for record in view.available_fanatics() %}
+    <label class="choice">
+      <input type="radio" name="fanatic" value="{{ record.id }}">
+      <span class="fanatic-token" style="background-position: 0 -{{ record.fanatic.sprite_index() * 23 }}px"></span>
+      {{ record.fanatic.label() }}
+    </label>
+    {% endfor %}
+    <button type="submit">Valider</button>
+  </form>
+{% else if view.can_pay() %}
+  <h2>Dépense collective</h2>
+  <p>Glissez secrètement des écus dans l'enveloppe. Le total décide du nombre d'objets vendus en ville.</p>
+  <form method="post" action="{{ self.player_path() }}/expense" class="stack">
+    <label>Montant (multiple de 100 écus)
+      <input type="number" name="amount" value="0" min="0" max="{{ view.me.money }}" step="100">
+    </label>
+    <button type="submit">Payer</button>
+  </form>
+{% else if view.can_produce() %}
+  <h2>Fabrication</h2>
+  <p>Prenez exactement {{ view.required_items() }} objet(s) magique(s) dans la réserve.</p>
+  <form method="post" action="{{ self.player_path() }}/production" class="stack">
+    {% for line in self.supply_lines() %}
+    <label class="choice">
+      <img src="/img/talisman-{{ line.key }}.jpg" alt="" class="item-icon">
+      {{ line.label }} (reste {{ line.count }})
+      <input type="number" name="{{ line.key }}" value="0" min="0" max="{{ line.count }}">
+    </label>
+    {% endfor %}
+    <button type="submit">Fabriquer</button>
+  </form>
+{% else if view.is_finished() %}
+  <h2>Partie terminée</h2>
+  <p>Consultez le journal pour connaître le vainqueur.</p>
+{% else %}
+  <h2>En attente</h2>
+  <p>Les autres alchimistes jouent. La page se met à jour toute seule.</p>
+{% endif %}
+</section>

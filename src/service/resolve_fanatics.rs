@@ -1,0 +1,64 @@
+use sqlx::SqliteConnection;
+
+use crate::db::{EventRecord, FanaticRecord, GameRecord, PlayerRecord};
+use crate::domain::{Cult, Fanatic, FanaticVerdict, TurnOrder, dominant_cult};
+use crate::error::AppError;
+
+/// Phase IV: reveals the great hall, applies the Dominant Fanatic to every laboratory,
+/// moves the surviving production into stock and discards the hall's pawns.
+///
+/// Players are handled in turn order, which matters when the supply runs out of bonus items.
+/// The records are updated in place; the caller saves `game`.
+pub async fn resolve_fanatics(
+    conn: &mut SqliteConnection,
+    game: &mut GameRecord,
+    players: &mut [PlayerRecord],
+) -> Result<(), AppError> {
+    let hall: Vec<Fanatic> = FanaticRecord::list_in_hall(conn, game.id)
+        .await?
+        .into_iter()
+        .map(|record| record.fanatic)
+        .collect();
+    let dominant = dominant_cult(&hall);
+    EventRecord::insert(conn, game.id, game.turn, &hall_message(&hall, dominant)).await?;
+
+    for seat in seats_in_turn_order(game, players.len()) {
+        let Some(player) = players.iter_mut().find(|player| player.seat == seat) else {
+            continue;
+        };
+        let verdict = dominant
+            .map(|cult| FanaticVerdict::judge(cult, &player.production))
+            .unwrap_or(FanaticVerdict::Unaffected);
+        let bonus = verdict
+            .bonus_item()
+            .filter(|item| game.supply.get(*item) > 0);
+        if let Some(item) = bonus {
+            game.supply = game.supply.with(item, game.supply.get(item) - 1);
+        }
+        player.stock = verdict.new_stock(player.production, player.stock, bonus.is_some());
+        player.production = Default::default();
+        player.save(conn).await?;
+        if dominant.is_some() {
+            let message = verdict.describe(&player.name, bonus.is_some());
+            EventRecord::insert(conn, game.id, game.turn, &message).await?;
+        }
+    }
+    FanaticRecord::discard_hall(conn, game.id).await
+}
+
+fn seats_in_turn_order(game: &GameRecord, player_count: usize) -> Vec<i64> {
+    let order = TurnOrder::new(player_count as i64, game.first_seat);
+    std::iter::successors(Some(order.first_seat()), |seat| order.next_after(*seat)).collect()
+}
+
+fn hall_message(hall: &[Fanatic], dominant: Option<Cult>) -> String {
+    if hall.is_empty() {
+        return "Personne n'a envoyé de fanatique : les laboratoires sont tranquilles.".to_string();
+    }
+    let revealed: Vec<String> = hall.iter().map(Fanatic::label).collect();
+    let outcome = match dominant {
+        Some(cult) => format!("la Dominante Fanatique est {}.", cult.label()),
+        _ => "égalité, les fanatiques ne font rien.".to_string(),
+    };
+    format!("Grande salle : {} — {outcome}", revealed.join(", "))
+}
