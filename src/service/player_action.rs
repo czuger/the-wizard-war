@@ -1,8 +1,9 @@
-use sqlx::SqliteConnection;
+use sqlx::{Sqlite, SqliteConnection, Transaction};
 
 use crate::db::{GameRecord, PlayerRecord};
 use crate::domain::Phase;
 use crate::error::AppError;
+use crate::service::ai_players::play_ai_players;
 
 /// The game and the acting player, loaded at the start of every player action.
 pub struct PlayerAction {
@@ -29,5 +30,17 @@ impl PlayerAction {
             return Err(AppError::WrongPhase);
         }
         Ok(PlayerAction { game, player })
+    }
+
+    /// Ends a player action: lets the computer-controlled alchemists play until the human
+    /// player has to act again, then saves the game and commits.
+    pub async fn finish(
+        mut tx: Transaction<'static, Sqlite>,
+        mut game: GameRecord,
+    ) -> Result<(), AppError> {
+        play_ai_players(&mut tx, &mut game).await?;
+        game.save(&mut tx).await?;
+        tx.commit().await?;
+        Ok(())
     }
 }

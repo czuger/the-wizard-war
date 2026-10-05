@@ -1,11 +1,12 @@
 use sqlx::{FromRow, SqliteConnection};
 
 use crate::domain::ItemCounts;
+use crate::domain::rules::{STARTING_LABORATORIES, STARTING_MONEY};
 use crate::error::AppError;
 
 const PLAYER_COLUMNS: &str = "id, game_id, seat, name, token, money, laboratories,
     toratsa_in_production, xephis_in_production, yaboul_in_production,
-    toratsa_in_stock, xephis_in_stock, yaboul_in_stock, turn_expense, announcement_done, expense_done";
+    toratsa_in_stock, xephis_in_stock, yaboul_in_stock, turn_expense, announcement_done, expense_done, is_ai";
 
 #[derive(FromRow)]
 struct PlayerRow {
@@ -25,6 +26,7 @@ struct PlayerRow {
     turn_expense: i64,
     announcement_done: bool,
     expense_done: bool,
+    is_ai: bool,
 }
 
 /// An alchemist as stored in the `players` table.
@@ -54,6 +56,8 @@ pub struct PlayerRecord {
     pub announcement_done: bool,
     /// Whether the player has paid this turn's expense.
     pub expense_done: bool,
+    /// Whether the computer plays this alchemist.
+    pub is_ai: bool,
 }
 
 impl From<PlayerRow> for PlayerRecord {
@@ -79,12 +83,16 @@ impl From<PlayerRow> for PlayerRecord {
             turn_expense: row.turn_expense,
             announcement_done: row.announcement_done,
             expense_done: row.expense_done,
+            is_ai: row.is_ai,
         }
     }
 }
 
 impl PlayerRecord {
-    /// Inserts a new player with the given starting money and laboratories.
+    /// Inserts a new player with the starting money and laboratories.
+    ///
+    /// # Arguments
+    /// * `is_ai` - whether the computer plays this alchemist.
     ///
     /// # Returns
     /// The new player's id.
@@ -94,18 +102,19 @@ impl PlayerRecord {
         seat: i64,
         name: &str,
         token: &str,
-        money: i64,
-        laboratories: i64,
+        is_ai: bool,
     ) -> Result<i64, AppError> {
         let result = sqlx::query(
-            "INSERT INTO players (game_id, seat, name, token, money, laboratories) VALUES (?, ?, ?, ?, ?, ?)",
+            "INSERT INTO players (game_id, seat, name, token, money, laboratories, is_ai)
+             VALUES (?, ?, ?, ?, ?, ?, ?)",
         )
         .bind(game_id)
         .bind(seat)
         .bind(name)
         .bind(token)
-        .bind(money)
-        .bind(laboratories)
+        .bind(STARTING_MONEY)
+        .bind(STARTING_LABORATORIES)
+        .bind(is_ai)
         .execute(conn)
         .await?;
         Ok(result.last_insert_rowid())

@@ -6,11 +6,15 @@ pub const STARTING_MONEY: i64 = 5_000;
 /// Laboratories each player starts with.
 pub const STARTING_LABORATORIES: i64 = 1;
 
-/// Fewest players in a game.
-pub const MIN_PLAYERS: usize = 2;
+/// Number of players in every game: one human and the computer-controlled alchemists.
+pub const PLAYER_COUNT: usize = 6;
 
-/// Most players in a game.
-pub const MAX_PLAYERS: usize = 6;
+/// Seat of the human player.
+pub const HUMAN_SEAT: i64 = 0;
+
+/// Names of the computer-controlled alchemists, seated after the human player.
+pub const AI_NAMES: [&str; PLAYER_COUNT - 1] =
+    ["Morgane", "Théophraste", "Ysolde", "Barnabé", "Mélusine"];
 
 /// Smallest banknote: expenses are paid in multiples of this amount.
 pub const EXPENSE_STEP: i64 = 100;

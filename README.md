@@ -8,7 +8,7 @@ A web version of *La guerre des magiciens*, an old French board game published i
 cargo run
 ```
 
-Then open <http://127.0.0.1:3000>, create a game and send each player their private link.
+Then open <http://127.0.0.1:3000>, enter your name and play against five alchemists controlled by the computer. Bookmark the page you land on: its URL is your private link to the game.
 
 Settings (environment variables):
 

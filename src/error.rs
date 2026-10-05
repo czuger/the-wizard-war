@@ -42,11 +42,13 @@ pub enum AppError {
     /// The player has already acted in this phase.
     #[error("Vous avez déjà joué cette phase.")]
     AlreadyDone,
-    /// The game would have too few or too many players.
-    #[error("Il faut entre 2 et 6 joueurs.")]
+    /// The fanatic pawns cannot be dealt to this number of players.
+    #[error("Ce nombre de joueurs n'est pas pris en charge.")]
     InvalidPlayerCount,
-    /// A player name is empty, too long or duplicated.
-    #[error("Chaque joueur doit avoir un nom de 1 à 30 caractères, différent des autres.")]
+    /// The player name is empty, too long or taken by a computer-controlled alchemist.
+    #[error(
+        "Votre nom doit compter de 1 à 30 caractères et ne pas être celui d'un alchimiste joué par l'ordinateur."
+    )]
     InvalidPlayerName,
     /// The number of turns is out of range.
     #[error("Le nombre de tours doit être compris entre 1 et 30.")]

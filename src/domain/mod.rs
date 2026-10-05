@@ -1,5 +1,6 @@
 //! Game rules, free of storage and web concerns.
 
+pub mod ai_strategy;
 mod cult;
 mod fanatic;
 mod fanatic_pool;

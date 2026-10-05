@@ -47,7 +47,7 @@
         <tbody>
           {% for player in view.players %}
           <tr class="{% if player.is_me %}me{% endif %}">
-            <td>{% if player.is_first %}★ {% endif %}{{ player.name }}</td>
+            <td>{% if player.is_first %}★ {% endif %}{{ player.name }}{% if player.is_ai %} <span class="hint">(ordinateur)</span>{% endif %}</td>
             <td>{{ player.money }}</td>
             <td>{{ player.laboratories }}</td>
             <td>{{ player.stock_total }}</td>

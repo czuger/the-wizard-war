@@ -1,6 +1,6 @@
-use sqlx::SqlitePool;
+use sqlx::{SqliteConnection, SqlitePool};
 
-use crate::db::{EventRecord, PlayerRecord};
+use crate::db::{EventRecord, GameRecord, PlayerRecord};
 use crate::domain::{ItemCounts, Phase, TurnOrder};
 use crate::error::AppError;
 use crate::service::end_turn::end_turn;
@@ -30,6 +30,20 @@ pub async fn produce_items(
         mut game,
         mut player,
     } = PlayerAction::load(&mut tx, game_id, token, Phase::Production).await?;
+    record_production(&mut tx, &mut game, &mut player, items).await?;
+    PlayerAction::finish(tx, game).await
+}
+
+/// Records the production of the active player of a game in the production phase,
+/// and closes the turn after the last one.
+///
+/// The players are saved; the caller saves `game`.
+pub(crate) async fn record_production(
+    conn: &mut SqliteConnection,
+    game: &mut GameRecord,
+    player: &mut PlayerRecord,
+    items: ItemCounts,
+) -> Result<(), AppError> {
     if game.active_seat != Some(player.seat) {
         return Err(AppError::NotYourTurn);
     }
@@ -43,23 +57,21 @@ pub async fn produce_items(
 
     game.supply = game.supply.minus(items);
     player.production = items;
-    player.save(&mut tx).await?;
+    player.save(conn).await?;
     let message = format!(
         "{} fabrique {} objet(s) magique(s).",
         player.name,
         items.total()
     );
-    EventRecord::insert(&mut tx, game.id, game.turn, &message).await?;
+    EventRecord::insert(conn, game.id, game.turn, &message).await?;
 
-    let mut players = PlayerRecord::list_for_game(&mut tx, game.id).await?;
+    let mut players = PlayerRecord::list_for_game(conn, game.id).await?;
     let order = TurnOrder::new(players.len() as i64, game.first_seat);
     game.active_seat = order.next_after(player.seat);
     if game.active_seat.is_none() {
-        resolve_fanatics(&mut tx, &mut game, &mut players).await?;
-        end_turn(&mut tx, &mut game, &mut players).await?;
+        resolve_fanatics(conn, game, &mut players).await?;
+        end_turn(conn, game, &mut players).await?;
     }
-    game.save(&mut tx).await?;
-    tx.commit().await?;
     Ok(())
 }
 

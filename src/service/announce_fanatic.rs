@@ -1,6 +1,6 @@
-use sqlx::SqlitePool;
+use sqlx::{SqliteConnection, SqlitePool};
 
-use crate::db::{EventRecord, FanaticRecord, PlayerRecord};
+use crate::db::{EventRecord, FanaticRecord, GameRecord, PlayerRecord};
 use crate::domain::Phase;
 use crate::error::AppError;
 use crate::service::player_action::PlayerAction;
@@ -27,33 +27,43 @@ pub async fn announce_fanatic(
         mut game,
         mut player,
     } = PlayerAction::load(&mut tx, game_id, token, Phase::Announcements).await?;
+    record_announcement(&mut tx, &mut game, &mut player, fanatic_id).await?;
+    PlayerAction::finish(tx, game).await
+}
+
+/// Records an announcement for a player of a game in the announcements phase.
+///
+/// The player is saved; the caller saves `game`.
+pub(crate) async fn record_announcement(
+    conn: &mut SqliteConnection,
+    game: &mut GameRecord,
+    player: &mut PlayerRecord,
+    fanatic_id: Option<i64>,
+) -> Result<(), AppError> {
     if player.announcement_done {
         return Err(AppError::AlreadyDone);
     }
-
     let message = match fanatic_id {
         Some(id) => {
-            let owned = FanaticRecord::list_for_player(&mut tx, player.id).await?;
+            let owned = FanaticRecord::list_for_player(conn, player.id).await?;
             if !owned
                 .iter()
                 .any(|record| record.id == id && !record.in_hall)
             {
                 return Err(AppError::FanaticNotAvailable);
             }
-            FanaticRecord::move_to_hall(&mut tx, id).await?;
+            FanaticRecord::move_to_hall(conn, id).await?;
             format!("{} envoie un fanatique dans la grande salle.", player.name)
         }
         None => format!("{} n'envoie aucun fanatique.", player.name),
     };
     player.announcement_done = true;
-    player.save(&mut tx).await?;
-    EventRecord::insert(&mut tx, game.id, game.turn, &message).await?;
+    player.save(conn).await?;
+    EventRecord::insert(conn, game.id, game.turn, &message).await?;
 
-    let players = PlayerRecord::list_for_game(&mut tx, game.id).await?;
+    let players = PlayerRecord::list_for_game(conn, game.id).await?;
     if players.iter().all(|other| other.announcement_done) {
         game.phase = Phase::Expenses;
     }
-    game.save(&mut tx).await?;
-    tx.commit().await?;
     Ok(())
 }

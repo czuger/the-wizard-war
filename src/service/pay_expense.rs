@@ -1,6 +1,6 @@
-use sqlx::SqlitePool;
+use sqlx::{SqliteConnection, SqlitePool};
 
-use crate::db::{EventRecord, PlayerRecord};
+use crate::db::{EventRecord, GameRecord, PlayerRecord};
 use crate::domain::Phase;
 use crate::domain::rules::EXPENSE_STEP;
 use crate::error::AppError;
@@ -28,6 +28,19 @@ pub async fn pay_expense(
         mut game,
         mut player,
     } = PlayerAction::load(&mut tx, game_id, token, Phase::Expenses).await?;
+    record_expense(&mut tx, &mut game, &mut player, amount).await?;
+    PlayerAction::finish(tx, game).await
+}
+
+/// Records an expense for a player of a game in the expenses phase.
+///
+/// The player is saved; the caller saves `game`.
+pub(crate) async fn record_expense(
+    conn: &mut SqliteConnection,
+    game: &mut GameRecord,
+    player: &mut PlayerRecord,
+    amount: i64,
+) -> Result<(), AppError> {
     if player.expense_done {
         return Err(AppError::AlreadyDone);
     }
@@ -41,17 +54,15 @@ pub async fn pay_expense(
     player.money -= amount;
     player.turn_expense = amount;
     player.expense_done = true;
-    player.save(&mut tx).await?;
+    player.save(conn).await?;
     game.collective_expense += amount;
     let message = format!("{} glisse sa contribution dans l'enveloppe.", player.name);
-    EventRecord::insert(&mut tx, game.id, game.turn, &message).await?;
+    EventRecord::insert(conn, game.id, game.turn, &message).await?;
 
-    let players = PlayerRecord::list_for_game(&mut tx, game.id).await?;
+    let players = PlayerRecord::list_for_game(conn, game.id).await?;
     if players.iter().all(|other| other.expense_done) {
         game.phase = Phase::Production;
         game.active_seat = Some(game.first_seat);
     }
-    game.save(&mut tx).await?;
-    tx.commit().await?;
     Ok(())
 }

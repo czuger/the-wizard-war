@@ -22,6 +22,8 @@ pub struct PlayerSummary {
     pub status: &'static str,
     /// Whether this is the player viewing the page.
     pub is_me: bool,
+    /// Whether the computer plays this alchemist.
+    pub is_ai: bool,
     /// Whether this player plays first this turn.
     pub is_first: bool,
 }
@@ -135,6 +137,7 @@ fn summarize(game: &GameRecord, player: &PlayerRecord, my_id: i64) -> PlayerSumm
         stock_total: player.stock.total(),
         status: status_of(game, player),
         is_me: player.id == my_id,
+        is_ai: player.is_ai,
         is_first: player.seat == game.first_seat,
     }
 }
