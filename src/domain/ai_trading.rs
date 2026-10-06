@@ -1,4 +1,5 @@
-//! Decisions of the computer-controlled alchemists in phases II.2 (fights), V, VI and VII.
+//! Decisions of the « Débutant » computer-controlled alchemists in phases II.2 (fights), V,
+//! VI and VII.
 //!
 //! A pawn in the city loads the stock item that sells best near the city and heads for
 //! the best buyer; a loaded pawn on a buying site stays and sells; an empty pawn, or one

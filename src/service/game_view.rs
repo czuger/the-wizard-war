@@ -1,7 +1,7 @@
 use sqlx::SqlitePool;
 
 use crate::db::{EventRecord, FanaticRecord, GameRecord, PlayerRecord, RebelRecord};
-use crate::domain::{ItemCounts, Phase, Wealth};
+use crate::domain::{AiLevel, ItemCounts, Phase, Wealth};
 use crate::error::AppError;
 use crate::service::board_loader::load_board_state;
 use crate::service::board_view::BoardView;
@@ -51,6 +51,8 @@ pub struct GameView {
     pub max_turns: i64,
     /// Current phase.
     pub phase: Phase,
+    /// How well the computer-controlled alchemists play.
+    pub ai_level: AiLevel,
     /// Seat expected to act in the production phase.
     pub active_seat: Option<i64>,
     /// Magic items left in the supply.
@@ -112,6 +114,7 @@ impl GameView {
             turn: game.turn,
             max_turns: game.max_turns,
             phase: game.phase,
+            ai_level: game.ai_level,
             active_seat: game.active_seat,
             supply: game.supply,
             me,

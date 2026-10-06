@@ -22,6 +22,14 @@
       </label>
       {% endfor %}
     </fieldset>
+    <fieldset class="ai-levels">
+      <legend>Niveau des alchimistes de l'ordinateur</legend>
+      {% for level in ai_levels %}
+      <label class="choice">
+        <input type="radio" name="ai_level" value="{{ level.key }}"{% if level.checked %} checked{% endif %}> {{ level.label }}
+      </label>
+      {% endfor %}
+    </fieldset>
     <button type="submit">Commencer la partie</button>
   </form>
 </section>

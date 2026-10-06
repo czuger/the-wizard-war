@@ -74,6 +74,21 @@ impl BoardState {
         }
     }
 
+    /// The board once `conversion` is done: the site gets its new marker, and a replacement
+    /// puts a rebels pawn on it.
+    ///
+    /// # Errors
+    /// The [`ConversionError`] naming the broken rule, as [`BoardState::validate`].
+    pub fn after(&self, conversion: &Conversion, turn: i64) -> Result<BoardState, ConversionError> {
+        let marker = self.validate(conversion, turn)?;
+        let mut next = self.clone();
+        next.markers.insert(conversion.site(), marker);
+        if let Conversion::Replace { site } = *conversion {
+            next.rebels.push(site);
+        }
+        Ok(next)
+    }
+
     /// Every conversion allowed this turn, sites in id order.
     pub fn legal_conversions(&self, turn: i64) -> Vec<Conversion> {
         SITES
@@ -161,6 +176,31 @@ mod tests {
 
     fn place(site: SiteId, cult: Cult) -> Conversion {
         Conversion::Place { site, cult }
+    }
+
+    #[test]
+    fn after_applies_the_conversion() {
+        let state = board(&[(2, Cult::Yaboul, false)], &[]);
+        let replaced = state
+            .after(&Conversion::Replace { site: SiteId(2) }, 2)
+            .unwrap();
+        assert_eq!(
+            replaced.marker(SiteId(2)),
+            Some(CultMarker::face_up(Cult::Xephis))
+        );
+        assert_eq!(replaced.rebels_on(SiteId(2)), 1);
+        let flipped = state
+            .after(&Conversion::Flip { site: SiteId(2) }, 2)
+            .unwrap();
+        assert_eq!(
+            flipped.marker(SiteId(2)),
+            Some(CultMarker::face_up(Cult::Yaboul))
+        );
+        assert_eq!(flipped.rebels_on(SiteId(2)), 0);
+        assert_eq!(
+            state.after(&place(SiteId(2), Cult::Xephis), 2),
+            Err(ConversionError::AlreadyMarked)
+        );
     }
 
     #[test]

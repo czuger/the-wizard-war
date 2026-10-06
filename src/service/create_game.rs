@@ -4,7 +4,7 @@ use sqlx::{SqliteConnection, SqlitePool};
 
 use crate::db::{EventRecord, FanaticRecord, GameRecord, PlayerRecord};
 use crate::domain::rules::{AI_NAMES, HUMAN_SEAT, MAX_NAME_LENGTH, MAX_TURNS, PLAYER_COUNT};
-use crate::domain::{District, Fanatic, FanaticPool, ItemCounts};
+use crate::domain::{AiLevel, District, Fanatic, FanaticPool, ItemCounts};
 use crate::error::AppError;
 use crate::service::player_action::PlayerAction;
 use crate::service::write_transaction::begin_write;
@@ -35,6 +35,7 @@ struct Setup {
 /// * `human_name` - name of the human player, seated first; surrounding spaces are trimmed.
 /// * `max_turns` - number of turns before the game ends.
 /// * `district` - district of the human player's laboratories; the AIs get the others.
+/// * `ai_level` - how well every computer-controlled alchemist plays.
 ///
 /// # Errors
 /// Fails on an invalid name or number of turns, or on a database error.
@@ -43,6 +44,7 @@ pub async fn create_game(
     human_name: &str,
     max_turns: i64,
     district: District,
+    ai_level: AiLevel,
 ) -> Result<CreatedGame, AppError> {
     let names = seat_names(human_name)?;
     let districts = seat_districts(district);
@@ -62,6 +64,7 @@ pub async fn create_game(
         max_turns,
         setup.first_seat,
         ItemCounts::initial_supply(),
+        ai_level,
     )
     .await?;
     let seats = SeatSetup {
@@ -74,7 +77,10 @@ pub async fn create_game(
         .get(setup.first_seat as usize)
         .map(String::as_str)
         .unwrap_or_default();
-    let message = format!("La partie commence. {first_name} joue en premier.");
+    let message = format!(
+        "La partie commence (alchimistes de niveau {}). {first_name} joue en premier.",
+        ai_level.label()
+    );
     EventRecord::insert(&mut tx, game_id, 1, &message).await?;
     let game = GameRecord::find(&mut tx, game_id).await?;
     PlayerAction::finish(tx, game).await?;

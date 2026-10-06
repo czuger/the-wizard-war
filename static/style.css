@@ -91,9 +91,18 @@ button:hover { filter: brightness(1.15); }
 .log li { padding: 3px 0; border-bottom: 1px dotted var(--border); }
 .log-turn { color: var(--muted); font-size: 0.85rem; margin-right: 4px; }
 
-/* The map and its tokens are drawn at the pictures' own size (map 2780×2289), never scaled; the map scrolls in its viewport. */
-.board-viewport { overflow: auto; max-height: calc(100vh - 32px); border-radius: 4px; }
-.board { position: relative; width: 2780px; }
+/* The map (2780×2289) and its tokens keep their pixel coordinates; board.js scales the whole board to the width left
+   beside the open floating panels (--board-scale, --board-center), the map scrolls vertically, and menus are scaled
+   back to stay readable. The frame takes the scaled height so the viewport scrolls exactly over the map. */
+body.map-screen { overflow: hidden; }
+.map-screen .site-header { display: none; }
+.map-screen main { padding: 0; }
+.board-viewport { position: fixed; inset: 0; overflow-x: hidden; overflow-y: auto; scrollbar-gutter: stable; background: #1b1510; }
+.board-frame { position: relative; height: calc(2289px * var(--board-scale, 1)); overflow: hidden; }
+.board {
+  position: absolute; left: var(--board-center, 50%); top: 0; width: 2780px;
+  transform: translateX(-50%) scale(var(--board-scale, 1)); transform-origin: top center;
+}
 .board > img { display: block; width: 2780px; height: 2289px; }
 .board-paths { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 .board-paths line { stroke: rgba(122, 46, 29, 0.35); stroke-width: 4; stroke-dasharray: 14 8; }
@@ -211,7 +220,8 @@ button:disabled { opacity: 0.5; cursor: not-allowed; filter: none; }
 @keyframes pulse { from { filter: brightness(1); } to { filter: brightness(1.35); } }
 .site-menu[open] { z-index: 10; }
 .menu {
-  position: absolute; top: calc(100% + 8px); left: 50%; transform: translateX(-50%); z-index: 10;
+  position: absolute; top: calc(100% + 8px); left: 50%; z-index: 10;
+  transform: translateX(-50%) scale(calc(1 / var(--board-scale, 1))); transform-origin: top center;
   display: flex; flex-direction: column; gap: 6px; min-width: 260px; max-width: 380px;
   background: var(--panel); border: 1px solid var(--border); border-radius: 6px;
   padding: 8px; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45); cursor: default;
@@ -224,8 +234,32 @@ button:disabled { opacity: 0.5; cursor: not-allowed; filter: none; }
 .token-menu > summary { list-style: none; position: relative; }
 .seller-badge { position: absolute; right: -8px; top: -8px; width: 22px; height: 22px; opacity: 0.4; }
 .token-menu:has(input:checked) .seller-badge { opacity: 1; }
-.cargo-chooser { top: auto; transform: translate(-50%, 24px); }
+.menu.menu-up { top: auto; bottom: calc(100% + 8px); transform-origin: bottom center; }
+.cargo-chooser { top: auto; transform: translate(-50%, 24px) scale(calc(1 / var(--board-scale, 1))); }
+.cargo-chooser.menu-up { bottom: auto; transform-origin: bottom center; transform: translate(-50%, calc(-100% - 24px)) scale(calc(1 / var(--board-scale, 1))); }
 .cargo-chooser button { display: flex; gap: 6px; align-items: center; }
 .district-labs.mine { min-width: 40px; min-height: 40px; border-radius: 8px; outline: 2px dashed rgba(255, 255, 255, 0.6); }
 .district-pawns { display: flex; flex-basis: 100%; justify-content: center; gap: 2px; }
 .district-pawns img { display: block; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.8)); }
+
+/* Floating panels over the full-window map. */
+.floating {
+  position: fixed; z-index: 20; top: 8px; margin: 0;
+  width: clamp(260px, 18vw, 360px); max-height: calc(100vh - 16px); overflow: auto;
+  background: rgba(255, 250, 240, 0.94); box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5); padding: 0;
+}
+.floating-controls { left: 8px; }
+.floating-log { right: 8px; }
+.floating > summary {
+  position: sticky; top: 0; z-index: 1; padding: 6px 12px; cursor: pointer;
+  background: var(--accent); color: #fff; font-weight: bold;
+}
+.floating:not([open]) { width: auto; }
+.floating > :not(summary) { margin: 8px; }
+.floating .panel { padding: 8px 10px; margin-bottom: 8px; }
+.floating .banner { gap: 6px 12px; }
+.floating .player-chip { flex: 1 1 120px; }
+.floating .legend summary { cursor: pointer; color: var(--accent); }
+.floating .legend .board-legend { margin: 6px 0 0; }
+.floating .banner-phase { display: none; }
+.floating-log { max-height: 50vh; }

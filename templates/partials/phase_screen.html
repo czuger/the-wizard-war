@@ -1,0 +1,16 @@
+<section class="panel phase-screen">
+{% match screen %}
+{% when Screen::Announcement %}{% include "phases/announcement.html" %}
+{% when Screen::Expense %}{% include "phases/expense.html" %}
+{% when Screen::Conversion %}{% include "phases/conversion.html" %}
+{% when Screen::RebelMovement %}{% include "phases/rebel_movement.html" %}
+{% when Screen::RebelFight %}{% include "phases/rebel_fight.html" %}
+{% when Screen::Production %}{% include "phases/production.html" %}
+{% when Screen::PawnMoves %}{% include "phases/pawn_moves.html" %}
+{% when Screen::Sales %}{% include "phases/sales.html" %}
+{% when Screen::CitySale %}{% include "phases/city_sale.html" %}
+{% when Screen::Purchase %}{% include "phases/purchase.html" %}
+{% when Screen::Waiting %}{% include "phases/waiting.html" %}
+{% when Screen::Finished %}{% include "phases/finished.html" %}
+{% endmatch %}
+</section>

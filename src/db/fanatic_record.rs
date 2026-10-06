@@ -81,6 +81,21 @@ impl FanaticRecord {
         rows.into_iter().map(FanaticRecord::try_from).collect()
     }
 
+    /// Lists every pawn still in a game: in the players' hands or in the great hall.
+    pub async fn list_for_game(
+        conn: &mut SqliteConnection,
+        game_id: i64,
+    ) -> Result<Vec<FanaticRecord>, AppError> {
+        let rows: Vec<FanaticRow> = sqlx::query_as(
+            "SELECT id, player_id, cult, strength, in_hall, revealed FROM fanatics
+             WHERE game_id = ? ORDER BY id",
+        )
+        .bind(game_id)
+        .fetch_all(conn)
+        .await?;
+        rows.into_iter().map(FanaticRecord::try_from).collect()
+    }
+
     /// Lists the pawns waiting in a game's great hall.
     pub async fn list_in_hall(
         conn: &mut SqliteConnection,

@@ -58,6 +58,9 @@ pub enum AppError {
     /// The district is not one of the city's six.
     #[error("Choisissez un des six quartiers de la cité.")]
     InvalidDistrict,
+    /// The level of the computer-controlled alchemists is unknown.
+    #[error("Niveau des alchimistes inconnu.")]
+    InvalidAiLevel,
     /// The fanatic is not one the player can send to the hall.
     #[error("Ce fanatique ne vous appartient pas.")]
     FanaticNotAvailable,

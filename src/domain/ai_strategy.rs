@@ -1,4 +1,5 @@
-//! Decisions of the computer-controlled alchemists.
+//! Decisions of the « Débutant » computer-controlled alchemists (see
+//! [`crate::domain::strong_ai`] for the « Fort » ones).
 //!
 //! The strategy is deliberately basic: an AI backs the cult its fanatics are strongest in,
 //! sends a pawn of that cult to the hall one turn in two, and only makes items of that cult
@@ -122,7 +123,7 @@ pub fn choose_conversion<R: Rng>(
 }
 
 /// Ranks a legal conversion for an AI backing `cult`: the lower, the better.
-fn conversion_priority(board: &BoardState, cult: Cult, conversion: &Conversion) -> u8 {
+pub fn conversion_priority(board: &BoardState, cult: Cult, conversion: &Conversion) -> u8 {
     let marker = board.marker(conversion.site());
     let marker_is = |wanted: Cult, face_up: bool| {
         marker.is_some_and(|marker| marker.cult == wanted && marker.face_up == face_up)

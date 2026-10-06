@@ -1,5 +1,6 @@
 //! Game rules, free of storage and web concerns.
 
+mod ai_level;
 pub mod ai_strategy;
 pub mod ai_trading;
 pub mod board;
@@ -24,11 +25,13 @@ pub mod rebel_movement;
 pub mod rules;
 mod site;
 mod site_kind;
+pub mod strong_ai;
 pub mod travel;
 mod turn_order;
 mod wealth;
 mod zone;
 
+pub use ai_level::AiLevel;
 pub use board_state::BoardState;
 pub use conversion::{Conversion, ConversionError};
 pub use cult::Cult;

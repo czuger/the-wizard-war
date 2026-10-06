@@ -2,8 +2,8 @@ use sqlx::SqlitePool;
 use wizard_war::db::{self, FanaticRecord, GameRecord, PawnRecord, PlayerRecord};
 use wizard_war::domain::rules::{AI_NAMES, HUMAN_SEAT, PLAYER_COUNT};
 use wizard_war::domain::{
-    Conversion, ConversionError, Cult, District, ItemCounts, Location, MagicItem, PawnKind,
-    PawnOrder, Phase, Purchase, PurchaseError, SiteId,
+    AiLevel, Conversion, ConversionError, Cult, District, ItemCounts, Location, MagicItem,
+    PawnKind, PawnOrder, Phase, Purchase, PurchaseError, SiteId,
 };
 use wizard_war::error::AppError;
 use wizard_war::service::{
@@ -13,8 +13,12 @@ use wizard_war::service::{
 };
 
 async fn new_game(max_turns: i64) -> (SqlitePool, CreatedGame) {
+    new_game_against(max_turns, AiLevel::Beginner).await
+}
+
+async fn new_game_against(max_turns: i64, ai_level: AiLevel) -> (SqlitePool, CreatedGame) {
     let pool = db::connect("sqlite::memory:").await.unwrap();
-    let game = create_game(&pool, "Ana", max_turns, District::Green)
+    let game = create_game(&pool, "Ana", max_turns, District::Green, ai_level)
         .await
         .unwrap();
     (pool, game)
@@ -199,6 +203,19 @@ async fn play_until_converted(pool: &SqlitePool, created: &CreatedGame) {
 }
 
 #[tokio::test]
+async fn the_ai_level_is_stored_with_the_game() {
+    let (pool, created) = new_game_against(8, AiLevel::Strong).await;
+    assert_eq!(
+        game_record(&pool, created.game_id).await.ai_level,
+        AiLevel::Strong
+    );
+    let view = GameView::load(&pool, created.game_id, &created.human_token)
+        .await
+        .unwrap();
+    assert_eq!(view.ai_level, AiLevel::Strong);
+}
+
+#[tokio::test]
 async fn setup_seats_the_human_first_against_five_ais() {
     let (pool, created) = new_game(8).await;
     let game = game_record(&pool, created.game_id).await;
@@ -326,7 +343,13 @@ async fn human_production_is_checked_then_the_turn_completes() {
 
 #[tokio::test]
 async fn a_long_game_runs_to_the_end_with_an_empty_supply() {
-    let (pool, created) = new_game(20).await;
+    for ai_level in AiLevel::ALL {
+        long_game_runs_to_the_end(ai_level).await;
+    }
+}
+
+async fn long_game_runs_to_the_end(ai_level: AiLevel) {
+    let (pool, created) = new_game_against(20, ai_level).await;
     for _ in 0..20 {
         play_human_turn(&pool, &created).await;
     }
@@ -356,7 +379,7 @@ async fn a_long_game_runs_to_the_end_with_an_empty_supply() {
 async fn invalid_names_and_tokens_are_rejected() {
     let (pool, created) = new_game(8).await;
     assert!(matches!(
-        create_game(&pool, AI_NAMES[2], 8, District::Blue).await,
+        create_game(&pool, AI_NAMES[2], 8, District::Blue, AiLevel::Strong).await,
         Err(AppError::InvalidPlayerName)
     ));
     assert!(matches!(
@@ -403,7 +426,13 @@ async fn first_turn_conversions_follow_the_rules() {
 
 #[tokio::test]
 async fn ai_conversions_never_block_a_long_game() {
-    let (pool, created) = new_game(12).await;
+    for ai_level in AiLevel::ALL {
+        conversions_never_block(ai_level).await;
+    }
+}
+
+async fn conversions_never_block(ai_level: AiLevel) {
+    let (pool, created) = new_game_against(12, ai_level).await;
     for _ in 0..12 {
         play_human_turn(&pool, &created).await;
     }
@@ -420,7 +449,10 @@ async fn ai_conversions_never_block_a_long_game() {
         .iter()
         .filter(|site| site.marker.is_some())
         .count();
-    assert!(marked >= 6, "markers spread over the map ({marked})");
+    assert!(
+        marked >= 6,
+        "markers spread over the map ({marked}, {ai_level:?})"
+    );
     let rebels: usize = view.board.sites.iter().map(|site| site.rebels).sum();
     assert!(rebels <= 7);
 }

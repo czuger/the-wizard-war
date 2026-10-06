@@ -1,6 +1,6 @@
 use sqlx::{FromRow, SqliteConnection};
 
-use crate::domain::{ItemCounts, Phase};
+use crate::domain::{AiLevel, ItemCounts, Phase};
 use crate::error::AppError;
 
 #[derive(FromRow)]
@@ -17,6 +17,7 @@ struct GameRow {
     collective_expense: i64,
     city_sales_left: i64,
     city_passes: i64,
+    ai_level: String,
     version: i64,
 }
 
@@ -43,6 +44,8 @@ pub struct GameRecord {
     pub city_sales_left: i64,
     /// Players who passed in a row in phase VI; a full round of passes ends the sales.
     pub city_passes: i64,
+    /// How well the computer-controlled alchemists play; set at creation.
+    pub ai_level: AiLevel,
     /// Incremented on every change, so pages know when to refresh.
     pub version: i64,
 }
@@ -55,6 +58,10 @@ impl TryFrom<GameRow> for GameRecord {
             column: "games.phase",
             value: row.phase.clone(),
         })?;
+        let ai_level = AiLevel::from_key(&row.ai_level).ok_or_else(|| AppError::CorruptData {
+            column: "games.ai_level",
+            value: row.ai_level.clone(),
+        })?;
         Ok(GameRecord {
             id: row.id,
             phase,
@@ -66,6 +73,7 @@ impl TryFrom<GameRow> for GameRecord {
             collective_expense: row.collective_expense,
             city_sales_left: row.city_sales_left,
             city_passes: row.city_passes,
+            ai_level,
             version: row.version,
         })
     }
@@ -81,10 +89,11 @@ impl GameRecord {
         max_turns: i64,
         first_seat: i64,
         supply: ItemCounts,
+        ai_level: AiLevel,
     ) -> Result<i64, AppError> {
         let result = sqlx::query(
-            "INSERT INTO games (phase, turn, max_turns, first_seat, supply_toratsa, supply_xephis, supply_yaboul)
-             VALUES (?, 1, ?, ?, ?, ?, ?)",
+            "INSERT INTO games (phase, turn, max_turns, first_seat, supply_toratsa, supply_xephis, supply_yaboul, ai_level)
+             VALUES (?, 1, ?, ?, ?, ?, ?, ?)",
         )
         .bind(Phase::Announcements.as_db_str())
         .bind(max_turns)
@@ -92,6 +101,7 @@ impl GameRecord {
         .bind(supply.toratsa)
         .bind(supply.xephis)
         .bind(supply.yaboul)
+        .bind(ai_level.key())
         .execute(conn)
         .await?;
         Ok(result.last_insert_rowid())
@@ -104,7 +114,7 @@ impl GameRecord {
     pub async fn find(conn: &mut SqliteConnection, id: i64) -> Result<GameRecord, AppError> {
         let row: Option<GameRow> = sqlx::query_as(
             "SELECT id, phase, turn, max_turns, first_seat, active_seat, supply_toratsa, supply_xephis,
-                    supply_yaboul, collective_expense, city_sales_left, city_passes, version
+                    supply_yaboul, collective_expense, city_sales_left, city_passes, ai_level, version
              FROM games WHERE id = ?",
         )
         .bind(id)

@@ -10,7 +10,7 @@ use crate::domain::ai_trading::{
 use crate::domain::board::site_by_id;
 use crate::domain::market::buys_without_limit;
 use crate::domain::rebel_movement::random_destination;
-use crate::domain::{Fanatic, Phase};
+use crate::domain::{AiLevel, Fanatic, Phase};
 use crate::error::AppError;
 use crate::service::announce_fanatic::record_announcement;
 use crate::service::board_loader::load_board_state;
@@ -24,6 +24,7 @@ use crate::service::produce_items::{record_production, required_items};
 use crate::service::purchases::{holdings_of, record_purchase};
 use crate::service::rebel_fights::{pending_fight, record_rebel_attack};
 use crate::service::sell_items::record_sales;
+use crate::service::strong_ai_players::play_strong;
 
 /// Lets the computer-controlled alchemists act until the human player has to play or the
 /// game is over.
@@ -37,25 +38,41 @@ pub async fn play_ai_players(
     game: &mut GameRecord,
 ) -> Result<(), AppError> {
     while let Some(mut player) = next_ai_player(conn, game).await? {
-        match game.phase {
-            Phase::Announcements => announce(conn, game, &mut player).await?,
-            Phase::Expenses => {
-                let amount = choose_expense(player.money, &mut rand::rng());
-                record_expense(conn, game, &mut player, amount).await?;
-            }
-            Phase::Conversions => convert(conn, game, &player).await?,
-            Phase::RebelMovement => move_rebels(conn, game, &player).await?,
-            Phase::RebelFights => attack(conn, game, &player).await?,
-            Phase::Production => produce(conn, game, &mut player).await?,
-            Phase::Peddlers if !player.moves_done => move_pawns(conn, game, &mut player).await?,
-            Phase::Peddlers => sell(conn, game, &mut player).await?,
-            Phase::CitySales => {
-                let item = choose_city_sale(player.stock);
-                record_city_sale(conn, game, &mut player, item).await?;
-            }
-            Phase::Purchases => buy(conn, game, &mut player).await?,
-            Phase::Finished => break,
+        if game.phase == Phase::Peddlers && player.moves_done {
+            sell(conn, game, &mut player).await?;
+            continue;
         }
+        match game.ai_level {
+            AiLevel::Beginner => play_beginner(conn, game, &mut player).await?,
+            AiLevel::Strong => play_strong(conn, game, &mut player).await?,
+        }
+    }
+    Ok(())
+}
+
+/// Plays one decision of a « Débutant » alchemist.
+async fn play_beginner(
+    conn: &mut SqliteConnection,
+    game: &mut GameRecord,
+    player: &mut PlayerRecord,
+) -> Result<(), AppError> {
+    match game.phase {
+        Phase::Announcements => announce(conn, game, player).await?,
+        Phase::Expenses => {
+            let amount = choose_expense(player.money, &mut rand::rng());
+            record_expense(conn, game, player, amount).await?;
+        }
+        Phase::Conversions => convert(conn, game, player).await?,
+        Phase::RebelMovement => move_rebels(conn, game, player).await?,
+        Phase::RebelFights => attack(conn, game, player).await?,
+        Phase::Production => produce(conn, game, player).await?,
+        Phase::Peddlers => move_pawns(conn, game, player).await?,
+        Phase::CitySales => {
+            let item = choose_city_sale(player.stock);
+            record_city_sale(conn, game, player, item).await?;
+        }
+        Phase::Purchases => buy(conn, game, player).await?,
+        Phase::Finished => {}
     }
     Ok(())
 }

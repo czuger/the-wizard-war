@@ -1,7 +1,7 @@
 use askama::Template;
 use sqlx::SqlitePool;
 use wizard_war::db;
-use wizard_war::domain::{Conversion, District};
+use wizard_war::domain::{AiLevel, Conversion, District};
 use wizard_war::service::{
     CreatedGame, GameView, announce_fanatic, convert_site, create_game, pay_expense,
 };
@@ -9,7 +9,9 @@ use wizard_war::web::{GamePage, Screen};
 
 async fn new_game() -> (SqlitePool, CreatedGame) {
     let pool = db::connect("sqlite::memory:").await.unwrap();
-    let game = create_game(&pool, "Ana", 8, District::Green).await.unwrap();
+    let game = create_game(&pool, "Ana", 8, District::Green, AiLevel::Beginner)
+        .await
+        .unwrap();
     (pool, game)
 }
 

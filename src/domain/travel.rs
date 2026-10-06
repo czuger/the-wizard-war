@@ -4,9 +4,11 @@
 //! the city through a gate and reaching a gate village is one step, and so is coming back.
 //! A pawn that reaches a gate goes back inside at once, so it never crosses the city.
 
+use std::borrow::Cow;
 use std::collections::{BTreeMap, VecDeque};
+use std::sync::LazyLock;
 
-use crate::domain::board::{GATE_VILLAGES, neighbours};
+use crate::domain::board::{GATE_VILLAGES, SITES, neighbours};
 use crate::domain::{Location, PawnKind};
 
 /// Stops one step away from `from`.
@@ -24,8 +26,28 @@ pub fn travel_neighbours(from: Location) -> Vec<Location> {
     }
 }
 
+/// For each stop, the distance and the previous stop on a shortest route from it to every
+/// stop it reaches.
+type Routes = BTreeMap<Location, (usize, Location)>;
+
+/// [`Routes`] from every stop of the map, computed once: the AIs ask for many distances.
+static ROUTES: LazyLock<BTreeMap<Location, Routes>> = LazyLock::new(|| {
+    std::iter::once(Location::City)
+        .chain(SITES.iter().map(|site| Location::Site(site.id)))
+        .map(|from| (from, search(from)))
+        .collect()
+});
+
 /// Distance in steps from `from` to every stop reachable from it.
-fn distances(from: Location) -> BTreeMap<Location, (usize, Location)> {
+fn distances(from: Location) -> Cow<'static, Routes> {
+    match ROUTES.get(&from) {
+        Some(routes) => Cow::Borrowed(routes),
+        None => Cow::Owned(search(from)),
+    }
+}
+
+/// Breadth-first search of the routes from `from`.
+fn search(from: Location) -> Routes {
     let mut reached = BTreeMap::from([(from, (0, from))]);
     let mut queue = VecDeque::from([from]);
     while let Some(stop) = queue.pop_front() {
@@ -46,9 +68,9 @@ fn distances(from: Location) -> BTreeMap<Location, (usize, Location)> {
 /// Every stop a pawn of `kind` on `from` may end its move on this turn, `from` excluded.
 pub fn destinations(kind: PawnKind, from: Location) -> Vec<Location> {
     distances(from)
-        .into_iter()
-        .filter(|(stop, (distance, _))| *stop != from && *distance <= kind.speed())
-        .map(|(stop, _)| stop)
+        .iter()
+        .filter(|(stop, (distance, _))| **stop != from && *distance <= kind.speed())
+        .map(|(stop, _)| *stop)
         .collect()
 }
 

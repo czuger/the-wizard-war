@@ -2,6 +2,7 @@
   <div class="banner-phase">
     <h1>{{ view.phase.label() }}</h1>
     {% if !view.is_finished() %}<span class="hint">Tour {{ view.turn }} / {{ view.max_turns }}</span>{% endif %}
+    <span class="hint">IA : {{ view.ai_level.label() }}</span>
   </div>
   <div class="banner-me" title="{{ view.me.name }}, laboratoires dans le {{ self.my_district() }}">
     <span class="resource"><span class="coin-icon"></span> {{ view.me.money }} écus</span>

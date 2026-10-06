@@ -1,5 +1,6 @@
 //! Use cases: each player action runs in one write transaction and bumps the game version.
 
+mod ai_outlook;
 mod ai_players;
 mod announce_fanatic;
 mod board_loader;
@@ -24,6 +25,7 @@ mod rebel_fights;
 mod resolve_fanatics;
 mod seat_cycle;
 mod sell_items;
+mod strong_ai_players;
 mod trade_view;
 mod write_transaction;
 

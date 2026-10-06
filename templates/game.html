@@ -1,43 +1,43 @@
 {% extends "base.html" %}
 {% block title %}Tour {{ view.turn }} — La guerre des magiciens{% endblock %}
+{% block body_class %}{% if self.shows_map() %}map-screen{% endif %}{% endblock %}
 {% block body_attrs %}data-game-id="{{ view.game_id }}" data-version="{{ view.version }}"{% endblock %}
 {% block main_class %}wide{% endblock %}
 {% block content %}
+{% if self.shows_map() %}
+{% include "board.html" %}
+
+<details class="panel floating floating-controls" open data-remember="controls">
+  <summary>{{ view.phase.label() }}{% if !view.is_finished() %} — tour {{ view.turn }} / {{ view.max_turns }}{% endif %}</summary>
+  {% include "partials/banner.html" %}
+  {% if let Some(error) = error %}<p class="error panel">{{ error }}</p>{% endif %}
+  {% include "partials/phase_screen.html" %}
+  <details class="legend" data-remember="legend">
+    <summary>Légende</summary>
+    {% include "partials/board_legend.html" %}
+  </details>
+</details>
+
+<details class="panel floating floating-log" open data-remember="log">
+  <summary>Journal</summary>
+  {% include "partials/log.html" %}
+</details>
+{% else %}
 <div class="game-layout">
 <div class="game-main">
 {% include "partials/banner.html" %}
 
 {% if let Some(error) = error %}<p class="error panel">{{ error }}</p>{% endif %}
 
-<section class="panel phase-screen">
-{% match screen %}
-{% when Screen::Announcement %}{% include "phases/announcement.html" %}
-{% when Screen::Expense %}{% include "phases/expense.html" %}
-{% when Screen::Conversion %}{% include "phases/conversion.html" %}
-{% when Screen::RebelMovement %}{% include "phases/rebel_movement.html" %}
-{% when Screen::RebelFight %}{% include "phases/rebel_fight.html" %}
-{% when Screen::Production %}{% include "phases/production.html" %}
-{% when Screen::PawnMoves %}{% include "phases/pawn_moves.html" %}
-{% when Screen::Sales %}{% include "phases/sales.html" %}
-{% when Screen::CitySale %}{% include "phases/city_sale.html" %}
-{% when Screen::Purchase %}{% include "phases/purchase.html" %}
-{% when Screen::Waiting %}{% include "phases/waiting.html" %}
-{% when Screen::Finished %}{% include "phases/finished.html" %}
-{% endmatch %}
-</section>
-
-{% if self.shows_map() %}{% include "board.html" %}{% endif %}
+{% include "partials/phase_screen.html" %}
 </div>
 
 <aside class="panel log-panel">
   <h2>Journal</h2>
-  <ol class="log">
-    {% for event in view.events %}
-    <li><span class="log-turn">T{{ event.turn }}</span> {{ event.message }}</li>
-    {% endfor %}
-  </ol>
+  {% include "partials/log.html" %}
 </aside>
 </div>
+{% endif %}
 {% endblock %}
 {% block scripts %}
 <script src="/static/poll.js"></script>
