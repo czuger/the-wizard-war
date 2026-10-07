@@ -11,8 +11,6 @@ use crate::service::produce_items::required_items;
 use crate::service::seat_cycle::seats_in_turn_order;
 use crate::service::trade_view::TradeView;
 
-const EVENT_LIMIT: i64 = 120;
-
 /// What everyone can see about one player.
 #[derive(Debug, Clone)]
 pub struct PlayerSummary {
@@ -91,7 +89,7 @@ impl GameView {
         let players = PlayerRecord::list_for_game(&mut conn, game_id).await?;
         let my_fanatics = FanaticRecord::list_for_player(&mut conn, me.id).await?;
         let hall = FanaticRecord::list_in_hall(&mut conn, game_id).await?;
-        let events = EventRecord::latest(&mut conn, game_id, EVENT_LIMIT).await?;
+        let events = EventRecord::list_for_game(&mut conn, game_id).await?;
         let board_state = load_board_state(&mut conn, game_id).await?;
         let rebels = RebelRecord::list_for_game(&mut conn, game_id).await?;
         let trade = TradeView::load(&mut conn, &game, &me, &players, &board_state).await?;

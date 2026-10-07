@@ -2,6 +2,7 @@
 
 mod ai_level;
 pub mod ai_strategy;
+mod ai_temperament;
 pub mod ai_trading;
 pub mod board;
 mod board_state;
@@ -15,6 +16,7 @@ mod fanatic_resolution;
 mod fight_outcome;
 mod item_counts;
 mod location;
+mod log_section;
 mod magic_item;
 pub mod market;
 mod pawn_kind;
@@ -32,17 +34,19 @@ mod wealth;
 mod zone;
 
 pub use ai_level::AiLevel;
+pub use ai_temperament::{AiTemperament, Archetype};
 pub use board_state::BoardState;
 pub use conversion::{Conversion, ConversionError};
 pub use cult::Cult;
 pub use cult_marker::CultMarker;
 pub use district::District;
 pub use fanatic::Fanatic;
-pub use fanatic_pool::FanaticPool;
+pub use fanatic_pool::{FanaticDeal, FanaticPool};
 pub use fanatic_resolution::{FanaticVerdict, dominant_cult};
 pub use fight_outcome::FightOutcome;
 pub use item_counts::ItemCounts;
 pub use location::Location;
+pub use log_section::LogSection;
 pub use magic_item::MagicItem;
 pub use pawn_kind::PawnKind;
 pub use pawn_order::PawnOrder;

@@ -5,7 +5,7 @@ use sqlx::{SqliteConnection, SqlitePool};
 use crate::db::{EventRecord, GameRecord, PawnRecord, PlayerRecord, RebelRecord, SaleRecord};
 use crate::domain::board::site_by_id;
 use crate::domain::travel::destinations;
-use crate::domain::{ItemCounts, Location, PawnOrder, Phase};
+use crate::domain::{ItemCounts, Location, LogSection, PawnOrder, Phase};
 use crate::error::AppError;
 use crate::service::board_loader::load_board_state;
 use crate::service::pawn_fight::fight;
@@ -145,7 +145,7 @@ async fn apply_order(
         ),
     };
     pawn.save(conn).await?;
-    EventRecord::insert(conn, game.id, game.turn, &message).await?;
+    EventRecord::insert(conn, game.id, game.turn, LogSection::Peddlers, &message).await?;
     Ok(pawn)
 }
 

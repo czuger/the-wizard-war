@@ -1,8 +1,11 @@
 use std::path::Path;
 
 use axum::Router;
+use axum::http::HeaderValue;
+use axum::http::header::CACHE_CONTROL;
 use axum::routing::{get, post};
 use tower_http::services::ServeDir;
+use tower_http::set_header::SetResponseHeaderLayer;
 
 use crate::web::app_state::AppState;
 use crate::web::{action_handlers, game_handlers, lobby_handlers};
@@ -57,5 +60,10 @@ pub fn build_router(state: AppState, asset_root: &Path) -> Router {
         )
         .nest_service("/img", ServeDir::new(asset_root.join("img")))
         .nest_service("/static", ServeDir::new(asset_root.join("static")))
+        // Assets keep stable URLs, so browsers must revalidate them (a 304 when unchanged) to see edits.
+        .layer(SetResponseHeaderLayer::if_not_present(
+            CACHE_CONTROL,
+            HeaderValue::from_static("no-cache"),
+        ))
         .with_state(state)
 }

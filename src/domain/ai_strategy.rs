@@ -23,11 +23,11 @@ const SEND_PROBABILITY: f64 = 0.5;
 /// city to sales in the first turns.
 const MAX_EXPENSE: i64 = 1_000;
 
-/// Returns the cult with the most total strength in `hand`, Xéphis on a tie.
+/// Returns the cult with the most total strength in `hand`, `tie` on a tie.
 ///
 /// # Returns
 /// `None` when the hand is empty.
-pub fn preferred_cult(hand: &[Fanatic]) -> Option<Cult> {
+pub fn preferred_cult(hand: &[Fanatic], tie: Cult) -> Option<Cult> {
     let strength_of = |cult: Cult| -> i64 {
         hand.iter()
             .filter(|fanatic| fanatic.cult == cult)
@@ -37,19 +37,26 @@ pub fn preferred_cult(hand: &[Fanatic]) -> Option<Cult> {
     if hand.is_empty() {
         return None;
     }
-    if strength_of(Cult::Yaboul) > strength_of(Cult::Xephis) {
-        Some(Cult::Yaboul)
-    } else {
-        Some(Cult::Xephis)
+    match strength_of(Cult::Yaboul).cmp(&strength_of(Cult::Xephis)) {
+        std::cmp::Ordering::Greater => Some(Cult::Yaboul),
+        std::cmp::Ordering::Less => Some(Cult::Xephis),
+        std::cmp::Ordering::Equal => Some(tie),
     }
 }
 
 /// Chooses the fanatic to send to the great hall this turn.
 ///
+/// # Arguments
+/// * `home_cult` - the cult the AI leans to on a tie.
+///
 /// # Returns
 /// The index in `hand` of the strongest pawn of the preferred cult, or `None` to send nothing.
-pub fn choose_announcement<R: Rng>(hand: &[Fanatic], rng: &mut R) -> Option<usize> {
-    let cult = preferred_cult(hand)?;
+pub fn choose_announcement<R: Rng>(
+    hand: &[Fanatic],
+    home_cult: Cult,
+    rng: &mut R,
+) -> Option<usize> {
+    let cult = preferred_cult(hand, home_cult)?;
     if !rng.random_bool(SEND_PROBABILITY) {
         return None;
     }
@@ -70,22 +77,36 @@ pub fn choose_expense<R: Rng>(money: i64, rng: &mut R) -> i64 {
 ///
 /// # Arguments
 /// * `backed_cult` - the cult of the fanatic the AI sent to the hall this turn, if any.
+/// * `home_cult` - the cult the AI leans to on a tie.
 ///
 /// # Returns
 /// Items of the backed cult first, then talismans, then whatever is left. Without a backed
 /// cult, talismans first, then the cult item the supply holds most of. The result always
 /// fits within `supply` and holds `count` items as long as the supply has that many.
-pub fn choose_production(count: i64, supply: &ItemCounts, backed_cult: Option<Cult>) -> ItemCounts {
-    let order = match backed_cult {
-        Some(cult) => [
+pub fn choose_production(
+    count: i64,
+    supply: &ItemCounts,
+    backed_cult: Option<Cult>,
+    home_cult: Cult,
+) -> ItemCounts {
+    let plentiful = match supply.yaboul.cmp(&supply.xephis) {
+        std::cmp::Ordering::Greater => Cult::Yaboul,
+        std::cmp::Ordering::Less => Cult::Xephis,
+        std::cmp::Ordering::Equal => home_cult,
+    };
+    let cult = backed_cult.unwrap_or(plentiful);
+    let order = if backed_cult.is_some() {
+        [
             MagicItem::of_cult(cult),
             MagicItem::Toratsa,
             MagicItem::of_cult(cult.opposite()),
-        ],
-        None if supply.yaboul > supply.xephis => {
-            [MagicItem::Toratsa, MagicItem::Yaboul, MagicItem::Xephis]
-        }
-        None => [MagicItem::Toratsa, MagicItem::Xephis, MagicItem::Yaboul],
+        ]
+    } else {
+        [
+            MagicItem::Toratsa,
+            MagicItem::of_cult(cult),
+            MagicItem::of_cult(cult.opposite()),
+        ]
     };
     let mut left = count;
     let mut chosen = ItemCounts::default();
@@ -154,8 +175,11 @@ mod tests {
             Fanatic::new(Cult::Xephis, 1),
             Fanatic::new(Cult::Yaboul, 3),
         ];
-        assert_eq!(preferred_cult(&hand), Some(Cult::Yaboul));
-        assert_eq!(preferred_cult(&[]), None);
+        assert_eq!(preferred_cult(&hand, Cult::Xephis), Some(Cult::Yaboul));
+        assert_eq!(preferred_cult(&[], Cult::Xephis), None);
+        let even = [Fanatic::new(Cult::Xephis, 2), Fanatic::new(Cult::Yaboul, 2)];
+        assert_eq!(preferred_cult(&even, Cult::Yaboul), Some(Cult::Yaboul));
+        assert_eq!(preferred_cult(&even, Cult::Xephis), Some(Cult::Xephis));
     }
 
     #[test]
@@ -167,10 +191,10 @@ mod tests {
         ];
         let mut rng = rand::rng();
         for _ in 0..50 {
-            let choice = choose_announcement(&hand, &mut rng);
+            let choice = choose_announcement(&hand, Cult::Xephis, &mut rng);
             assert!(matches!(choice, None | Some(2)));
         }
-        assert_eq!(choose_announcement(&[], &mut rng), None);
+        assert_eq!(choose_announcement(&[], Cult::Xephis, &mut rng), None);
     }
 
     #[test]
@@ -187,11 +211,11 @@ mod tests {
     fn production_follows_the_backed_cult() {
         let supply = ItemCounts::new(5, 5, 5);
         assert_eq!(
-            choose_production(2, &supply, Some(Cult::Yaboul)),
+            choose_production(2, &supply, Some(Cult::Yaboul), Cult::Xephis),
             ItemCounts::new(0, 0, 2)
         );
         assert_eq!(
-            choose_production(2, &supply, None),
+            choose_production(2, &supply, None, Cult::Xephis),
             ItemCounts::new(2, 0, 0)
         );
     }
@@ -234,16 +258,25 @@ mod tests {
     fn production_falls_back_when_the_supply_runs_out() {
         let supply = ItemCounts::new(1, 0, 3);
         assert_eq!(
-            choose_production(3, &supply, Some(Cult::Xephis)),
+            choose_production(3, &supply, Some(Cult::Xephis), Cult::Xephis),
             ItemCounts::new(1, 0, 2)
         );
         assert_eq!(
-            choose_production(3, &supply, None),
+            choose_production(3, &supply, None, Cult::Xephis),
             ItemCounts::new(1, 0, 2)
         );
         assert_eq!(
-            choose_production(9, &supply, None),
+            choose_production(9, &supply, None, Cult::Xephis),
             ItemCounts::new(1, 0, 3)
+        );
+        let even = ItemCounts::new(0, 3, 3);
+        assert_eq!(
+            choose_production(2, &even, None, Cult::Yaboul),
+            ItemCounts::new(0, 0, 2)
+        );
+        assert_eq!(
+            choose_production(2, &even, None, Cult::Xephis),
+            ItemCounts::new(0, 2, 0)
         );
     }
 }

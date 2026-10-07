@@ -5,7 +5,7 @@ use sqlx::{SqliteConnection, SqlitePool};
 use crate::db::{EventRecord, GameRecord, PawnRecord, PlayerRecord, SaleRecord};
 use crate::domain::board::site_by_id;
 use crate::domain::market::buys_without_limit;
-use crate::domain::{Phase, SiteId};
+use crate::domain::{LogSection, Phase, SiteId};
 use crate::error::AppError;
 use crate::service::board_loader::load_board_state;
 use crate::service::pawn_rules::sale_offer;
@@ -75,7 +75,7 @@ pub(crate) async fn record_sales(
             site_by_id(sale.site).map_or("?", |site| site.name),
             sale.price
         );
-        EventRecord::insert(conn, game.id, game.turn, &message).await?;
+        EventRecord::insert(conn, game.id, game.turn, LogSection::Peddlers, &message).await?;
     }
     player.save(conn).await?;
     finish_peddler_turn(conn, game, player.seat).await

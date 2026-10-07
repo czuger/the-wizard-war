@@ -21,7 +21,8 @@ pub struct Rebel {
 ///
 /// A rebels pawn marches onto rival pawns when it can, since the AI then picks whom it
 /// attacks; it never marches onto the AI's own pawns if another village is free of them.
-/// Otherwise it heads where rival pawns are near and the AI's pawns are not.
+/// Otherwise it heads where rival pawns are near and the AI's pawns are not. How much the
+/// rival pawns count depends on the AI's temperament.
 ///
 /// # Returns
 /// One `(rebel id, village)` per pawn able to move.
@@ -55,8 +56,9 @@ fn score(outlook: &AiOutlook, site: SiteId) -> i64 {
     };
     let own_here = outlook.own_pawns_on(here) as i64;
     let rivals_here = outlook.rival_pawns_on(here) as i64;
-    -100 * own_here + 10 * rivals_here + 2 * near(AiOutlook::rival_pawns_on)
-        - 3 * near(AiOutlook::own_pawns_on)
+    let against_rivals = (10 * rivals_here + 2 * near(AiOutlook::rival_pawns_on)) as f64;
+    -100 * own_here - 3 * near(AiOutlook::own_pawns_on)
+        + (against_rivals * outlook.temperament.rival_weight).round() as i64
 }
 
 #[cfg(test)]

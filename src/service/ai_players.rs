@@ -111,7 +111,8 @@ async fn announce(
         .filter(|record| !record.in_hall)
         .collect();
     let hand: Vec<Fanatic> = available.iter().map(|record| record.fanatic).collect();
-    let fanatic_id = choose_announcement(&hand, &mut rand::rng())
+    let home_cult = player.temperament().home_cult;
+    let fanatic_id = choose_announcement(&hand, home_cult, &mut rand::rng())
         .and_then(|index| available.get(index))
         .map(|record| record.id);
     record_announcement(conn, game, player, fanatic_id).await
@@ -129,7 +130,8 @@ async fn produce(
         .find(|record| record.in_hall)
         .map(|record| record.fanatic.cult);
     let count = required_items(player.laboratories, &game.supply);
-    let items = choose_production(count, &game.supply, backed_cult);
+    let home_cult = player.temperament().home_cult;
+    let items = choose_production(count, &game.supply, backed_cult, home_cult);
     record_production(conn, game, player, items).await
 }
 
@@ -145,7 +147,8 @@ async fn convert(
         .map(|record| record.fanatic)
         .collect();
     let board = load_board_state(conn, game.id).await?;
-    let conversion = choose_conversion(&board, game.turn, preferred_cult(&hand), &mut rand::rng());
+    let cult = preferred_cult(&hand, player.temperament().home_cult);
+    let conversion = choose_conversion(&board, game.turn, cult, &mut rand::rng());
     record_conversion(conn, game, player, conversion).await
 }
 

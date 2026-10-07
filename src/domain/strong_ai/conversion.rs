@@ -1,12 +1,12 @@
 //! Phase II.1: which site the AI converts.
 
 use rand::Rng;
-use rand::seq::IndexedRandom;
 
 use crate::domain::ai_strategy::{conversion_priority, preferred_cult};
 use crate::domain::board::{SITES, neighbours};
 use crate::domain::strong_ai::buyer::best_buyer;
 use crate::domain::strong_ai::item_values::ItemValues;
+use crate::domain::strong_ai::near_best::pick_near_best;
 use crate::domain::strong_ai::outlook::AiOutlook;
 use crate::domain::travel::distance;
 use crate::domain::{BoardState, Conversion, Cult, Fanatic, Location, MagicItem};
@@ -24,33 +24,33 @@ const REBEL_THREAT: i64 = 1_500;
 ///
 /// Every legal conversion is tried on a copy of the board, which is scored by what the AI's
 /// stock and loaded pawns can fetch, minus the buyers within its rivals' reach and the
-/// rebels next to its pawns. Ties go to the beginner's order for the cult the AI holds most
-/// items of (castles and monasteries first), then to chance.
+/// rebels next to its pawns, as much as the AI cares about its rivals. Ties go to the
+/// beginner's order for the cult the AI holds most items of (castles and monasteries
+/// first). The AI picks one of the conversions within its temperament's tolerance.
 ///
 /// # Returns
 /// `None` when no conversion is legal.
 pub fn choose_conversion<R: Rng>(outlook: &AiOutlook, rng: &mut R) -> Option<Conversion> {
     let cult = favoured_cult(outlook);
-    let scored: Vec<(Conversion, (i64, i64))> = outlook
+    let scored = outlook
         .board
         .legal_conversions(outlook.turn)
         .into_iter()
         .filter_map(|conversion| {
             let after = outlook.board.after(&conversion, outlook.turn).ok()?;
-            let priority = -i64::from(conversion_priority(&outlook.board, cult, &conversion));
-            Some((conversion, (board_score(outlook, &after), priority)))
+            let priority = f64::from(conversion_priority(&outlook.board, cult, &conversion));
+            // The priority only breaks ties: it is worth less than one écu.
+            Some((
+                conversion,
+                board_score(outlook, &after) as f64 - priority / 10.0,
+            ))
         })
         .collect();
-    let best = scored.iter().map(|(_, score)| *score).max()?;
-    let candidates: Vec<Conversion> = scored
-        .into_iter()
-        .filter(|(_, score)| *score == best)
-        .map(|(conversion, _)| conversion)
-        .collect();
-    candidates.choose(rng).copied()
+    pick_near_best(scored, outlook.temperament.tolerance as f64, rng)
 }
 
-/// The cult the AI holds most items of, or the one its fanatics are strongest in.
+/// The cult the AI holds most items of, or the one its fanatics are strongest in, or its
+/// home cult.
 fn favoured_cult(outlook: &AiOutlook) -> Cult {
     let held = |cult: Cult| {
         let item = MagicItem::of_cult(cult);
@@ -72,12 +72,13 @@ fn favoured_cult(outlook: &AiOutlook) -> Cult {
         .copied()
         .chain(outlook.own_in_hall)
         .collect();
-    preferred_cult(&fanatics).unwrap_or(Cult::Xephis)
+    let home = outlook.temperament.home_cult;
+    preferred_cult(&fanatics, home).unwrap_or(home)
 }
 
 /// How good `board` is for the AI, in écus.
 fn board_score(outlook: &AiOutlook, board: &BoardState) -> i64 {
-    let values = ItemValues::build(board, &outlook.pawns, outlook.sale_turns);
+    let values = ItemValues::build(outlook, board);
     values.stock_value(&outlook.stock) + carried_value(outlook, board)
         - rival_access(outlook, board)
         - rebel_threat(outlook, board)
@@ -91,16 +92,9 @@ fn carried_value(outlook: &AiOutlook, board: &BoardState) -> i64 {
         .filter(|pawn| pawn.location != Location::City)
         .filter_map(|pawn| {
             let item = pawn.item?;
-            best_buyer(
-                board,
-                item,
-                pawn.location,
-                pawn.kind,
-                outlook.sale_turns,
-                &[],
-            )
+            best_buyer(outlook, board, item, pawn.location, pawn.kind, &[])
         })
-        .map(|buyer| buyer.score())
+        .map(|buyer| buyer.worth(&outlook.temperament, &outlook.rivals))
         .sum()
 }
 
@@ -121,7 +115,7 @@ fn rival_access(outlook: &AiOutlook, board: &BoardState) -> i64 {
                 .count()
         })
         .sum();
-    in_reach as i64 * RIVAL_SITE_WORTH
+    (in_reach as f64 * RIVAL_SITE_WORTH as f64 * outlook.temperament.rival_weight) as i64
 }
 
 /// Rebels next to the AI's pawns on the map. Rebels only fight where they arrive, so those

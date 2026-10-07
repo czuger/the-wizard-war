@@ -37,7 +37,7 @@ pub use city_quota_row::CityQuotaRow;
 pub use city_sales::sell_in_city;
 pub use city_view::{CityView, DistrictView, HallToken};
 pub use convert_site::convert_site;
-pub use create_game::{CreatedGame, create_game};
+pub use create_game::{CreatedGame, GameSettings, create_game};
 pub use game_view::{GameView, PlayerSummary};
 pub use move_pawns::move_pawns;
 pub use move_rebels::{RebelMove, move_rebels};

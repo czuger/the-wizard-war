@@ -18,6 +18,7 @@ struct GameRow {
     city_sales_left: i64,
     city_passes: i64,
     ai_level: String,
+    player_count: i64,
     version: i64,
 }
 
@@ -46,6 +47,8 @@ pub struct GameRecord {
     pub city_passes: i64,
     /// How well the computer-controlled alchemists play; set at creation.
     pub ai_level: AiLevel,
+    /// Number of players, the human included, from 2 to 6; set at creation.
+    pub player_count: i64,
     /// Incremented on every change, so pages know when to refresh.
     pub version: i64,
 }
@@ -74,6 +77,7 @@ impl TryFrom<GameRow> for GameRecord {
             city_sales_left: row.city_sales_left,
             city_passes: row.city_passes,
             ai_level,
+            player_count: row.player_count,
             version: row.version,
         })
     }
@@ -90,10 +94,12 @@ impl GameRecord {
         first_seat: i64,
         supply: ItemCounts,
         ai_level: AiLevel,
+        player_count: i64,
     ) -> Result<i64, AppError> {
         let result = sqlx::query(
-            "INSERT INTO games (phase, turn, max_turns, first_seat, supply_toratsa, supply_xephis, supply_yaboul, ai_level)
-             VALUES (?, 1, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO games (phase, turn, max_turns, first_seat, supply_toratsa, supply_xephis, supply_yaboul,
+                                ai_level, player_count)
+             VALUES (?, 1, ?, ?, ?, ?, ?, ?, ?)",
         )
         .bind(Phase::Announcements.as_db_str())
         .bind(max_turns)
@@ -102,6 +108,7 @@ impl GameRecord {
         .bind(supply.xephis)
         .bind(supply.yaboul)
         .bind(ai_level.key())
+        .bind(player_count)
         .execute(conn)
         .await?;
         Ok(result.last_insert_rowid())
@@ -114,7 +121,7 @@ impl GameRecord {
     pub async fn find(conn: &mut SqliteConnection, id: i64) -> Result<GameRecord, AppError> {
         let row: Option<GameRow> = sqlx::query_as(
             "SELECT id, phase, turn, max_turns, first_seat, active_seat, supply_toratsa, supply_xephis,
-                    supply_yaboul, collective_expense, city_sales_left, city_passes, ai_level, version
+                    supply_yaboul, collective_expense, city_sales_left, city_passes, ai_level, player_count, version
              FROM games WHERE id = ?",
         )
         .bind(id)

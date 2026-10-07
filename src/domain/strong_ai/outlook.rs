@@ -2,7 +2,9 @@
 
 use crate::domain::ai_trading::MovablePawn;
 use crate::domain::strong_ai::item_values::ItemValues;
-use crate::domain::{BoardState, Fanatic, ItemCounts, Location, PawnKind, SiteId, Wealth};
+use crate::domain::{
+    AiTemperament, BoardState, Fanatic, ItemCounts, Location, PawnKind, SiteId, Wealth,
+};
 
 /// A rival's peddler or caravan, as everyone sees it: its load is hidden.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -52,6 +54,8 @@ pub struct AiOutlook {
     pub rivals: Vec<RivalPawn>,
     /// Sites that have already bought an item this turn.
     pub sold_sites: Vec<SiteId>,
+    /// The AI's hidden playing style.
+    pub temperament: AiTemperament,
 }
 
 impl AiOutlook {
@@ -62,7 +66,7 @@ impl AiOutlook {
 
     /// What the items are worth to the AI on the current board.
     pub fn item_values(&self) -> ItemValues {
-        ItemValues::build(&self.board, &self.pawns, self.sale_turns)
+        ItemValues::build(self, &self.board)
     }
 
     /// The AI's pawns standing on `location`.
@@ -85,8 +89,9 @@ impl AiOutlook {
 #[cfg(test)]
 pub(crate) mod fixtures {
     use super::*;
+    use crate::domain::Archetype;
 
-    /// An AI at turn 1 of 8, with one laboratory, 5,000 écus and nothing else.
+    /// A balanced AI at turn 1 of 8, with one laboratory, 5,000 écus and nothing else.
     pub(crate) fn outlook() -> AiOutlook {
         AiOutlook {
             turn: 1,
@@ -106,6 +111,7 @@ pub(crate) mod fixtures {
             pawns: Vec::new(),
             rivals: Vec::new(),
             sold_sites: Vec::new(),
+            temperament: AiTemperament::new(Archetype::Balanced, 0),
         }
     }
 

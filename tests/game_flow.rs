@@ -1,15 +1,17 @@
 use sqlx::SqlitePool;
-use wizard_war::db::{self, FanaticRecord, GameRecord, PawnRecord, PlayerRecord};
-use wizard_war::domain::rules::{AI_NAMES, HUMAN_SEAT, PLAYER_COUNT};
+use wizard_war::db::{
+    self, FanaticRecord, GameRecord, PawnRecord, PlayerRecord, SpareFanaticRecord,
+};
+use wizard_war::domain::rules::{AI_NAMES, HUMAN_SEAT, MAX_PLAYER_COUNT};
 use wizard_war::domain::{
-    AiLevel, Conversion, ConversionError, Cult, District, ItemCounts, Location, MagicItem,
-    PawnKind, PawnOrder, Phase, Purchase, PurchaseError, SiteId,
+    AiLevel, Archetype, Conversion, ConversionError, Cult, District, ItemCounts, Location,
+    LogSection, MagicItem, PawnKind, PawnOrder, Phase, Purchase, PurchaseError, SiteId,
 };
 use wizard_war::error::AppError;
 use wizard_war::service::{
-    CreatedGame, GameView, RebelMove, announce_fanatic, attack_pawn, buy_from_bank, convert_site,
-    create_game, move_pawns, move_rebels, pay_expense, produce_items, required_items, sell_in_city,
-    sell_items,
+    CreatedGame, GameSettings, GameView, RebelMove, announce_fanatic, attack_pawn, buy_from_bank,
+    convert_site, create_game, move_pawns, move_rebels, pay_expense, produce_items, required_items,
+    sell_in_city, sell_items,
 };
 
 async fn new_game(max_turns: i64) -> (SqlitePool, CreatedGame) {
@@ -17,10 +19,23 @@ async fn new_game(max_turns: i64) -> (SqlitePool, CreatedGame) {
 }
 
 async fn new_game_against(max_turns: i64, ai_level: AiLevel) -> (SqlitePool, CreatedGame) {
+    new_game_with(max_turns, ai_level, MAX_PLAYER_COUNT).await
+}
+
+async fn new_game_with(
+    max_turns: i64,
+    ai_level: AiLevel,
+    player_count: usize,
+) -> (SqlitePool, CreatedGame) {
     let pool = db::connect("sqlite::memory:").await.unwrap();
-    let game = create_game(&pool, "Ana", max_turns, District::Green, ai_level)
-        .await
-        .unwrap();
+    let settings = GameSettings {
+        human_name: "Ana",
+        max_turns,
+        district: District::Green,
+        ai_level,
+        player_count,
+    };
+    let game = create_game(&pool, &settings).await.unwrap();
     (pool, game)
 }
 
@@ -216,6 +231,44 @@ async fn the_ai_level_is_stored_with_the_game() {
 }
 
 #[tokio::test]
+async fn every_ai_gets_its_own_hidden_temperament() {
+    let (pool, created) = new_game_against(8, AiLevel::Strong).await;
+    let players = players(&pool, created.game_id).await;
+    assert_eq!(players[HUMAN_SEAT as usize].archetype, Archetype::Balanced);
+    let mut drawn: Vec<&str> = players
+        .iter()
+        .filter(|player| player.is_ai)
+        .map(|player| player.archetype.key())
+        .collect();
+    drawn.sort_unstable();
+    let mut expected = Archetype::DRAWN.map(Archetype::key);
+    expected.sort_unstable();
+    assert_eq!(drawn, expected);
+}
+
+#[tokio::test]
+async fn players_stored_before_temperaments_are_balanced() {
+    let (pool, created) = new_game(8).await;
+    let mut conn = pool.acquire().await.unwrap();
+    sqlx::query(
+        "INSERT INTO players (game_id, seat, name, token, money, laboratories, district)
+         VALUES (?, 9, 'Ancien', 'old-token', 0, 0, 'blue')",
+    )
+    .bind(created.game_id)
+    .execute(&mut *conn)
+    .await
+    .unwrap();
+    let old = PlayerRecord::list_for_game(&mut conn, created.game_id)
+        .await
+        .unwrap()
+        .into_iter()
+        .find(|player| player.seat == 9)
+        .unwrap();
+    assert_eq!(old.archetype, Archetype::Balanced);
+    assert_eq!(old.temperament().home_cult, Cult::Xephis);
+}
+
+#[tokio::test]
 async fn setup_seats_the_human_first_against_five_ais() {
     let (pool, created) = new_game(8).await;
     let game = game_record(&pool, created.game_id).await;
@@ -223,7 +276,8 @@ async fn setup_seats_the_human_first_against_five_ais() {
     assert_eq!(game.turn, 1);
     assert_eq!(game.supply, ItemCounts::new(20, 25, 35));
     let players = players(&pool, created.game_id).await;
-    assert_eq!(players.len(), PLAYER_COUNT);
+    assert_eq!(players.len(), MAX_PLAYER_COUNT);
+    assert_eq!(game.player_count, MAX_PLAYER_COUNT as i64);
     for player in &players {
         let human = player.seat == HUMAN_SEAT;
         assert_eq!(player.is_ai, !human);
@@ -237,6 +291,67 @@ async fn setup_seats_the_human_first_against_five_ais() {
     }
     let names: Vec<&str> = players[1..].iter().map(|p| p.name.as_str()).collect();
     assert_eq!(names, AI_NAMES);
+    let mut conn = pool.acquire().await.unwrap();
+    let spare = SpareFanaticRecord::list_for_game(&mut conn, created.game_id)
+        .await
+        .unwrap();
+    assert!(spare.is_empty());
+}
+
+#[tokio::test]
+async fn a_two_player_game_deals_six_fanatics_each_and_leaves_twelve_in_the_box() {
+    let (pool, created) = new_game_with(8, AiLevel::Strong, 2).await;
+    let game = game_record(&pool, created.game_id).await;
+    assert_eq!(game.player_count, 2);
+    assert!((0..2).contains(&game.first_seat));
+    let players = players(&pool, created.game_id).await;
+    let names: Vec<&str> = players.iter().map(|p| p.name.as_str()).collect();
+    assert_eq!(names, ["Ana", AI_NAMES[0]]);
+    assert_ne!(players[0].district, players[1].district);
+    let mut conn = pool.acquire().await.unwrap();
+    for player in &players {
+        let fanatics = FanaticRecord::list_for_player(&mut conn, player.id)
+            .await
+            .unwrap();
+        assert_eq!(fanatics.len(), 6);
+    }
+    let spare = SpareFanaticRecord::list_for_game(&mut conn, created.game_id)
+        .await
+        .unwrap();
+    assert_eq!(spare.len(), 12);
+}
+
+#[tokio::test]
+async fn games_of_two_to_five_players_run_to_the_end() {
+    for player_count in 2..MAX_PLAYER_COUNT {
+        for ai_level in AiLevel::ALL {
+            let (pool, created) = new_game_with(6, ai_level, player_count).await;
+            for _ in 0..6 {
+                play_human_turn(&pool, &created).await;
+            }
+            let game = game_record(&pool, created.game_id).await;
+            assert_eq!(game.phase, Phase::Finished, "{player_count} players");
+            assert!((0..player_count as i64).contains(&game.first_seat));
+        }
+    }
+}
+
+#[tokio::test]
+async fn player_counts_outside_two_to_six_are_rejected() {
+    let pool = db::connect("sqlite::memory:").await.unwrap();
+    for player_count in [0, 1, 7] {
+        let settings = GameSettings {
+            human_name: "Ana",
+            max_turns: 8,
+            district: District::Green,
+            ai_level: AiLevel::Beginner,
+            player_count,
+        };
+        assert!(matches!(
+            create_game(&pool, &settings).await,
+            Err(AppError::InvalidPlayerCount)
+        ));
+    }
 }
 
 #[tokio::test]
@@ -330,7 +445,7 @@ async fn human_production_is_checked_then_the_turn_completes() {
     let game = game_record(&pool, id).await;
     assert_eq!(game.turn, 2);
     assert_eq!(game.phase, Phase::Announcements);
-    assert_eq!(game.first_seat, (first_seat + 1) % PLAYER_COUNT as i64);
+    assert_eq!(game.first_seat, (first_seat + 1) % MAX_PLAYER_COUNT as i64);
     for player in players(&pool, id).await {
         assert!(
             player.stock.total() >= 1 || player.is_ai,
@@ -376,10 +491,56 @@ async fn long_game_runs_to_the_end(ai_level: AiLevel) {
 }
 
 #[tokio::test]
+async fn the_whole_log_is_shown_with_the_phase_of_each_line() {
+    let (pool, created) = new_game(20).await;
+    for _ in 0..20 {
+        play_human_turn(&pool, &created).await;
+    }
+    let view = GameView::load(&pool, created.game_id, &created.human_token)
+        .await
+        .unwrap();
+    assert!(view.events.len() > 120, "the log is not truncated");
+    let first = view.events.last().unwrap();
+    assert_eq!((first.turn, first.section), (1, Some(LogSection::Turn)));
+    assert!(first.message.starts_with("La partie commence"));
+    let expense = view
+        .events
+        .iter()
+        .find(|event| event.message.starts_with("Dépense collective du tour"))
+        .unwrap();
+    assert_eq!(expense.section, Some(LogSection::CitySales));
+    for section in [
+        LogSection::Announcements,
+        LogSection::Conversions,
+        LogSection::Production,
+        LogSection::Fanatics,
+        LogSection::Peddlers,
+        LogSection::Purchases,
+    ] {
+        assert!(
+            view.events
+                .iter()
+                .any(|event| event.section == Some(section)),
+            "{section:?} lines are logged"
+        );
+    }
+}
+
+#[tokio::test]
 async fn invalid_names_and_tokens_are_rejected() {
     let (pool, created) = new_game(8).await;
     assert!(matches!(
-        create_game(&pool, AI_NAMES[2], 8, District::Blue, AiLevel::Strong).await,
+        create_game(
+            &pool,
+            &GameSettings {
+                human_name: AI_NAMES[2],
+                max_turns: 8,
+                district: District::Blue,
+                ai_level: AiLevel::Strong,
+                player_count: MAX_PLAYER_COUNT,
+            }
+        )
+        .await,
         Err(AppError::InvalidPlayerName)
     ));
     assert!(matches!(

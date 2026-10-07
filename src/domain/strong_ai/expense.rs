@@ -17,7 +17,8 @@ const LOWEST_CITY_PRICE: i64 = 3_500;
 ///
 /// The expense only matters to sell in the city, so the AI pays nothing unless it holds or
 /// is about to make more items than its pawns can take out before the end. It then pays its
-/// share of the smallest expense that opens the city (Table 2), twice that on the last turn,
+/// share of the smallest expense that opens the city (Table 2), more or less as generous as
+/// its temperament, twice that on the last turn,
 /// never more than half what the extra items fetch in the city, and keeps a reserve.
 ///
 /// # Returns
@@ -34,6 +35,7 @@ pub fn choose_expense(outlook: &AiOutlook) -> i64 {
     };
     let opening = CITY_QUOTA_EXPENSE_STEPS[column];
     let per_player = opening / CONTRIBUTORS;
+    let per_player = (per_player as f64 * outlook.temperament.expense_factor) as i64;
     let mut share = (per_player + EXPENSE_STEP - 1) / EXPENSE_STEP * EXPENSE_STEP;
     if outlook.turns_after() == 0 {
         share *= 2;

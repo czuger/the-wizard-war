@@ -1,13 +1,14 @@
 //! What the items of a stock are worth to the AI by the end of the game.
 //!
-//! An item is worth its best map price, minus the trip, if one of the AI's pawns can take
-//! it out before the end; otherwise it is worth the city price, discounted because the city
-//! only buys when the collective expense opens it.
+//! An item is worth what its best buyer on the map is worth to the AI (see
+//! [`Buyer::worth`](crate::domain::strong_ai::Buyer::worth)) if one of the AI's pawns can
+//! take it out before the end; otherwise it is worth the city price, discounted because the
+//! city only buys when the collective expense opens it.
 
 use crate::domain::ai_trading::MovablePawn;
-use crate::domain::board::site_by_id;
-use crate::domain::market::{buys_without_limit, city_price};
+use crate::domain::market::city_price;
 use crate::domain::strong_ai::buyer::buyers;
+use crate::domain::strong_ai::outlook::AiOutlook;
 use crate::domain::{BoardState, ItemCounts, Location, MagicItem, PawnKind};
 
 /// Chance that the city buys an item the pawns cannot take out.
@@ -27,7 +28,7 @@ fn round_trip_turns(kind: PawnKind) -> i64 {
 /// The worth of each kind of item for one AI, on one board.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ItemValues {
-    /// Best map value (price minus the trip) of each kind, in [`MagicItem::ALL`] order.
+    /// Best map value of each kind, in [`MagicItem::ALL`] order.
     map: [Option<i64>; 3],
     /// Items of each kind the map can buy before the end.
     outlets: [i64; 3],
@@ -36,11 +37,10 @@ pub struct ItemValues {
 }
 
 impl ItemValues {
-    /// Values the items for an AI owning `pawns`.
-    ///
-    /// # Arguments
-    /// * `sale_turns` - phases V left in the game, this turn's included if it is still ahead.
-    pub fn build(board: &BoardState, pawns: &[MovablePawn], sale_turns: i64) -> ItemValues {
+    /// Values the items for the AI of `outlook`, with the markers and rebels of `board`.
+    pub fn build(outlook: &AiOutlook, board: &BoardState) -> ItemValues {
+        let pawns = &outlook.pawns;
+        let sale_turns = outlook.sale_turns;
         let kind = if pawns.iter().any(|pawn| pawn.kind == PawnKind::Caravan) {
             PawnKind::Caravan
         } else {
@@ -50,12 +50,14 @@ impl ItemValues {
         let mut outlets = [0; 3];
         for (index, item) in MagicItem::ALL.into_iter().enumerate() {
             let found = buyers(board, item, Location::City, kind, sale_turns);
-            map[index] = found.iter().map(|buyer| buyer.score()).max();
+            map[index] = found
+                .iter()
+                .map(|buyer| buyer.worth(&outlook.temperament, &outlook.rivals))
+                .max();
             let per_turn: i64 = found
                 .iter()
-                .filter_map(|buyer| site_by_id(buyer.site))
-                .map(|site| {
-                    if buys_without_limit(site) {
+                .map(|buyer| {
+                    if buyer.unlimited {
                         MONASTERY_SALES_PER_TURN
                     } else {
                         1
@@ -152,7 +154,8 @@ mod tests {
     use std::collections::BTreeMap;
 
     use super::*;
-    use crate::domain::{Cult, CultMarker, SiteId};
+    use crate::domain::strong_ai::outlook::fixtures::outlook;
+    use crate::domain::{AiTemperament, Archetype, Cult, CultMarker, SiteId};
 
     fn board(markers: &[(u8, Cult)]) -> BoardState {
         let markers = markers
@@ -171,14 +174,23 @@ mod tests {
         }
     }
 
+    /// Values for a balanced AI with one peddler in the city.
+    fn values(board: &BoardState, sale_turns: i64) -> ItemValues {
+        let mut outlook = outlook();
+        outlook.pawns = vec![peddler(1)];
+        outlook.sale_turns = sale_turns;
+        ItemValues::build(&outlook, board)
+    }
+
     #[test]
     fn items_with_a_trip_are_worth_their_map_price() {
-        let values = ItemValues::build(&board(&[(27, Cult::Yaboul)]), &[peddler(1)], 4);
-        assert_eq!(values.map_value(MagicItem::Yaboul), Some(5_000 - 1_500));
+        let values = values(&board(&[(27, Cult::Yaboul)]), 4);
+        let village = 4_700;
+        assert_eq!(values.map_value(MagicItem::Yaboul), Some(village - 1_500));
         assert_eq!(values.map_value(MagicItem::Xephis), None);
         assert_eq!(values.trips(), 1);
         let one = values.stock_value(&ItemCounts::new(0, 0, 1));
-        assert_eq!(one, 3_500);
+        assert_eq!(one, village - 1_500);
         let two = values.stock_value(&ItemCounts::new(0, 0, 2));
         assert_eq!(two - one, 1_750, "the second item waits for the city");
         assert_eq!(values.surplus(&ItemCounts::new(0, 0, 2)), 1);
@@ -186,7 +198,7 @@ mod tests {
 
     #[test]
     fn nothing_sells_on_the_map_after_the_last_phase_five() {
-        let values = ItemValues::build(&board(&[(27, Cult::Yaboul)]), &[peddler(1)], 0);
+        let values = values(&board(&[(27, Cult::Yaboul)]), 0);
         assert_eq!(values.map_value(MagicItem::Yaboul), None);
         assert_eq!(values.trips(), 0);
         assert_eq!(values.surplus(&ItemCounts::new(1, 0, 1)), 2);
@@ -203,5 +215,18 @@ mod tests {
         assert_eq!(trips_left(&[peddler(1), peddler(2)], 8), 4);
         assert_eq!(trips_left(&[], 3), 1);
         assert_eq!(trips_left(&[], 1), 0);
+    }
+
+    #[test]
+    fn a_merchant_values_talismans_more() {
+        let board = BoardState::default();
+        let mut merchant = outlook();
+        merchant.pawns = vec![peddler(1)];
+        merchant.temperament = AiTemperament::new(Archetype::Merchant, 0);
+        merchant.temperament.turn_cost = 1_500;
+        let liked = ItemValues::build(&merchant, &board).map_value(MagicItem::Toratsa);
+        let plain = values(&board, 8).map_value(MagicItem::Toratsa);
+        let bonus = merchant.temperament.favourite_bonus;
+        assert_eq!(liked, plain.map(|plain| plain + bonus));
     }
 }

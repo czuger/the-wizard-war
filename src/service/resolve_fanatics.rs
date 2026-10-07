@@ -1,7 +1,7 @@
 use sqlx::SqliteConnection;
 
 use crate::db::{EventRecord, FanaticRecord, GameRecord, PlayerRecord};
-use crate::domain::{Cult, Fanatic, FanaticVerdict, dominant_cult};
+use crate::domain::{Cult, Fanatic, FanaticVerdict, LogSection, dominant_cult};
 use crate::error::AppError;
 use crate::service::seat_cycle::seats_in_turn_order;
 
@@ -22,7 +22,14 @@ pub async fn resolve_fanatics(
         .map(|record| record.fanatic)
         .collect();
     let dominant = dominant_cult(&hall);
-    EventRecord::insert(conn, game.id, game.turn, &hall_message(&hall, dominant)).await?;
+    EventRecord::insert(
+        conn,
+        game.id,
+        game.turn,
+        LogSection::Fanatics,
+        &hall_message(&hall, dominant),
+    )
+    .await?;
 
     for seat in seats_in_turn_order(game) {
         let Some(player) = players.iter_mut().find(|player| player.seat == seat) else {
@@ -42,7 +49,7 @@ pub async fn resolve_fanatics(
         player.save(conn).await?;
         if dominant.is_some() {
             let message = verdict.describe(&player.name, bonus.is_some());
-            EventRecord::insert(conn, game.id, game.turn, &message).await?;
+            EventRecord::insert(conn, game.id, game.turn, LogSection::Fanatics, &message).await?;
         }
     }
     FanaticRecord::reveal_hall(conn, game.id).await

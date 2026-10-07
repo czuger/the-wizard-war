@@ -1,8 +1,8 @@
 use sqlx::{SqliteConnection, SqlitePool};
 
 use crate::db::{EventRecord, GameRecord, PlayerRecord};
-use crate::domain::Phase;
 use crate::domain::rules::EXPENSE_STEP;
+use crate::domain::{LogSection, Phase};
 use crate::error::AppError;
 use crate::service::player_action::PlayerAction;
 use crate::service::write_transaction::begin_write;
@@ -57,7 +57,14 @@ pub(crate) async fn record_expense(
     player.save(conn).await?;
     game.collective_expense += amount;
     let message = format!("{} glisse sa contribution dans l'enveloppe.", player.name);
-    EventRecord::insert(conn, game.id, game.turn, &message).await?;
+    EventRecord::insert(
+        conn,
+        game.id,
+        game.turn,
+        LogSection::Announcements,
+        &message,
+    )
+    .await?;
 
     let players = PlayerRecord::list_for_game(conn, game.id).await?;
     if players.iter().all(|other| other.expense_done) {

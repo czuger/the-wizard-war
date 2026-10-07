@@ -1,6 +1,8 @@
 use sqlx::SqliteConnection;
 
-use crate::db::{FanaticRecord, GameRecord, PawnRecord, PlayerRecord, SaleRecord};
+use crate::db::{
+    FanaticRecord, GameRecord, PawnRecord, PlayerRecord, SaleRecord, SpareFanaticRecord,
+};
 use crate::domain::ai_trading::MovablePawn;
 use crate::domain::strong_ai::{AiOutlook, RivalPawn};
 use crate::domain::{Phase, Wealth};
@@ -20,6 +22,7 @@ pub(crate) async fn load_outlook(
 ) -> Result<AiOutlook, AppError> {
     let players = PlayerRecord::list_for_game(conn, game.id).await?;
     let fanatics = FanaticRecord::list_for_game(conn, game.id).await?;
+    let spare_fanatics = SpareFanaticRecord::list_for_game(conn, game.id).await?;
     let pawns = PawnRecord::list_for_game(conn, game.id).await?;
     let board = load_board_state(conn, game.id).await?;
     let sold_sites = SaleRecord::sites_sold(conn, game.id, game.turn).await?;
@@ -58,18 +61,20 @@ pub(crate) async fn load_outlook(
             .iter()
             .filter(|record| record.in_hall && !record.revealed)
             .count(),
-        // Discarded pawns were revealed when played, so the fanatics still in the game that
-        // are neither the AI's nor face up are exactly the full pool minus its own pawns and
-        // every pawn revealed so far: a count any player can keep.
+        // Discarded pawns were revealed when played, so the rivals' hidden pawns plus those
+        // left in the box are exactly the full pool minus the AI's own pawns and every pawn
+        // revealed so far: a count any player can keep.
         unseen: others_fanatics
             .iter()
             .filter(|record| !record.revealed)
             .map(|record| record.fanatic)
+            .chain(spare_fanatics)
             .collect(),
         rivals_with_fanatics,
         pawns: own_pawns(&pawns, player.id),
         rivals: rival_pawns(&pawns, &players, player.id),
         sold_sites,
+        temperament: player.temperament(),
     })
 }
 

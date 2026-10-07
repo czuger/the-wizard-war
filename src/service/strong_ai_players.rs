@@ -8,7 +8,7 @@ use crate::domain::strong_ai::{
     choose_expense, choose_fight_target, choose_pawn_moves, choose_production, choose_purchase,
     choose_rebel_moves,
 };
-use crate::domain::{Conversion, Wealth};
+use crate::domain::{Conversion, ItemCounts, PawnOrder, Wealth};
 use crate::error::AppError;
 use crate::service::ai_outlook::load_outlook;
 use crate::service::announce_fanatic::record_announcement;
@@ -47,7 +47,7 @@ pub(crate) async fn play_strong(
         Phase::RebelFights => attack(conn, game, player).await,
         Phase::Production => {
             let count = required_items(player.laboratories, &game.supply);
-            let items = choose_production(&outlook, count);
+            let items = pick_production(&outlook, count);
             record_production(conn, game, player, items).await
         }
         Phase::Peddlers => move_pawns(conn, game, player, &outlook).await,
@@ -71,6 +71,21 @@ fn pick_conversion(outlook: &AiOutlook) -> Option<Conversion> {
     choose_conversion(outlook, &mut rand::rng())
 }
 
+/// Kept synchronous: the thread-local RNG must not live across an `.await`.
+fn pick_production(outlook: &AiOutlook, count: i64) -> ItemCounts {
+    choose_production(outlook, count, &mut rand::rng())
+}
+
+/// Kept synchronous: the thread-local RNG must not live across an `.await`.
+fn pick_announcement(outlook: &AiOutlook) -> Option<usize> {
+    choose_announcement(outlook, &mut rand::rng())
+}
+
+/// Kept synchronous: the thread-local RNG must not live across an `.await`.
+fn pick_pawn_moves(outlook: &AiOutlook, movable: &[MovablePawn]) -> Vec<PawnOrder> {
+    choose_pawn_moves(outlook, movable, &mut rand::rng())
+}
+
 /// Sends the fanatic [`choose_announcement`] picks, if any.
 async fn announce(
     conn: &mut SqliteConnection,
@@ -84,7 +99,7 @@ async fn announce(
         .filter(|record| !record.in_hall)
         .collect();
     outlook.hand = available.iter().map(|record| record.fanatic).collect();
-    let fanatic_id = choose_announcement(&outlook)
+    let fanatic_id = pick_announcement(&outlook)
         .and_then(|index| available.get(index))
         .map(|record| record.id);
     record_announcement(conn, game, player, fanatic_id).await
@@ -161,6 +176,6 @@ async fn move_pawns(
             item: pawn.item,
         })
         .collect();
-    let orders = choose_pawn_moves(outlook, &movable);
+    let orders = pick_pawn_moves(outlook, &movable);
     record_pawn_moves(conn, game, player, &orders).await
 }

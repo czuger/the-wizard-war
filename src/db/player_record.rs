@@ -1,13 +1,13 @@
 use sqlx::{FromRow, SqliteConnection};
 
 use crate::domain::rules::{STARTING_LABORATORIES, STARTING_MONEY};
-use crate::domain::{District, ItemCounts};
+use crate::domain::{AiTemperament, Archetype, District, ItemCounts};
 use crate::error::AppError;
 
 const PLAYER_COLUMNS: &str = "id, game_id, seat, name, token, money, laboratories,
     toratsa_in_production, xephis_in_production, yaboul_in_production,
     toratsa_in_stock, xephis_in_stock, yaboul_in_stock, turn_expense, announcement_done, expense_done, is_ai,
-    district, moves_done";
+    district, moves_done, temperament, temperament_seed";
 
 #[derive(FromRow)]
 struct PlayerRow {
@@ -30,6 +30,8 @@ struct PlayerRow {
     is_ai: bool,
     district: String,
     moves_done: bool,
+    temperament: String,
+    temperament_seed: i64,
 }
 
 /// An alchemist as stored in the `players` table.
@@ -65,6 +67,31 @@ pub struct PlayerRecord {
     pub district: District,
     /// Whether the player has moved their pawns in this turn's phase V.
     pub moves_done: bool,
+    /// Hidden playing style, used when the computer plays this alchemist.
+    pub archetype: Archetype,
+    /// Seed varying the weights of the playing style.
+    pub temperament_seed: i64,
+}
+
+/// What a new row of the `players` table is made of.
+#[derive(Debug, Clone, Copy)]
+pub struct NewPlayer<'a> {
+    /// Game the player joins.
+    pub game_id: i64,
+    /// Position around the table, from 0.
+    pub seat: i64,
+    /// Name shown to everyone.
+    pub name: &'a str,
+    /// Secret part of the player's link.
+    pub token: &'a str,
+    /// Whether the computer plays this alchemist.
+    pub is_ai: bool,
+    /// District of the player's laboratories.
+    pub district: District,
+    /// Hidden playing style.
+    pub archetype: Archetype,
+    /// Seed varying the weights of the playing style.
+    pub temperament_seed: i64,
 }
 
 impl TryFrom<PlayerRow> for PlayerRecord {
@@ -75,6 +102,11 @@ impl TryFrom<PlayerRow> for PlayerRecord {
             column: "players.district",
             value: row.district.clone(),
         })?;
+        let archetype =
+            Archetype::from_key(&row.temperament).ok_or_else(|| AppError::CorruptData {
+                column: "players.temperament",
+                value: row.temperament.clone(),
+            })?;
         Ok(PlayerRecord {
             id: row.id,
             game_id: row.game_id,
@@ -99,40 +131,41 @@ impl TryFrom<PlayerRow> for PlayerRecord {
             is_ai: row.is_ai,
             district,
             moves_done: row.moves_done,
+            archetype,
+            temperament_seed: row.temperament_seed,
         })
     }
 }
 
 impl PlayerRecord {
+    /// The weights of the player's playing style.
+    pub fn temperament(&self) -> AiTemperament {
+        AiTemperament::new(self.archetype, self.temperament_seed)
+    }
+
     /// Inserts a new player with the starting money and laboratories.
-    ///
-    /// # Arguments
-    /// * `is_ai` - whether the computer plays this alchemist.
-    /// * `district` - district of the player's laboratories.
     ///
     /// # Returns
     /// The new player's id.
     pub async fn insert(
         conn: &mut SqliteConnection,
-        game_id: i64,
-        seat: i64,
-        name: &str,
-        token: &str,
-        is_ai: bool,
-        district: District,
+        player: NewPlayer<'_>,
     ) -> Result<i64, AppError> {
         let result = sqlx::query(
-            "INSERT INTO players (game_id, seat, name, token, money, laboratories, is_ai, district)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO players (game_id, seat, name, token, money, laboratories, is_ai, district,
+                                  temperament, temperament_seed)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         )
-        .bind(game_id)
-        .bind(seat)
-        .bind(name)
-        .bind(token)
+        .bind(player.game_id)
+        .bind(player.seat)
+        .bind(player.name)
+        .bind(player.token)
         .bind(STARTING_MONEY)
         .bind(STARTING_LABORATORIES)
-        .bind(is_ai)
-        .bind(district.key())
+        .bind(player.is_ai)
+        .bind(player.district.key())
+        .bind(player.archetype.key())
+        .bind(player.temperament_seed)
         .execute(conn)
         .await?;
         Ok(result.last_insert_rowid())

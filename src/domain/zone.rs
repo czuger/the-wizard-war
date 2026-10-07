@@ -10,6 +10,9 @@ pub enum Zone {
 }
 
 impl Zone {
+    /// The three zones, from the city outwards.
+    pub const ALL: [Zone; 3] = [Zone::Outskirts, Zone::Countryside, Zone::Mountain];
+
     /// Returns the French name shown to players.
     pub fn label(self) -> &'static str {
         match self {

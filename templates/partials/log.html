@@ -1,5 +1,9 @@
 <ol class="log">
   {% for event in view.events %}
+  {% if let Some(section) = event.section %}
+  <li class="section-{{ section.as_db_str() }}" title="{{ section.label() }}"><span class="log-turn">T{{ event.turn }}{% if !section.numeral().is_empty() %} · {{ section.numeral() }}{% endif %}</span> {{ event.message }}</li>
+  {% else %}
   <li><span class="log-turn">T{{ event.turn }}</span> {{ event.message }}</li>
+  {% endif %}
   {% endfor %}
 </ol>

@@ -3,17 +3,27 @@
    {{ view.required_items() }} objet(s) magique(s) dans la réserve de la banque.</p>
 <form method="post" action="{{ self.player_path() }}/production" class="stack">
   <table class="items-table">
-    <thead><tr><th>Objet</th><th>Réserve</th><th>Mon stock</th><th>À fabriquer</th></tr></thead>
-    <tbody>
-      {% for line in self.supply_lines() %}
+    <thead>
       <tr>
-        <td><img src="{{ line.image }}" alt="" class="item-icon"> {{ line.label }}</td>
-        <td>{{ line.count }}</td>
-        <td>{{ self.stock_of(line.key) }}</td>
-        <td><input type="number" name="{{ line.key }}" value="0" min="0" max="{{ line.count }}"></td>
+        <th rowspan="2">Objet</th><th rowspan="2">Réserve</th><th rowspan="2">Mon stock</th>
+        <th rowspan="2">À fabriquer</th><th colspan="4" class="price-group">Prix d'achat (écus)</th>
+      </tr>
+      <tr><th>Ville</th><th>Faubourgs</th><th>Campagne</th><th>Montagne</th></tr>
+    </thead>
+    <tbody>
+      {% for line in self.production_lines() %}
+      <tr>
+        <td><img src="{{ line.supply.image }}" alt="" class="item-icon"> {{ line.supply.label }}</td>
+        <td>{{ line.supply.count }}</td>
+        <td>{{ line.stock }}</td>
+        <td><input type="number" name="{{ line.supply.key }}" value="0" min="0" max="{{ line.supply.count }}"></td>
+        <td class="price">{{ line.city_price }}</td>
+        {% for price in line.site_prices %}<td class="price">{{ price }}</td>{% endfor %}
       </tr>
       {% endfor %}
     </tbody>
   </table>
+  <p class="hint">Un village, un monastère ou un château n'achète que les objets du culte qu'il affiche ;
+     les talismans de Toratsa ne se vendent qu'aux châteaux, quel que soit leur culte.</p>
   <button type="submit">Fabriquer</button>
 </form>

@@ -1,8 +1,7 @@
 use sqlx::{SqliteConnection, SqlitePool};
 
 use crate::db::{CultMarkerRecord, EventRecord, GameRecord, PlayerRecord, RebelRecord};
-use crate::domain::rules::PLAYER_COUNT;
-use crate::domain::{Conversion, Phase, TurnOrder};
+use crate::domain::{Conversion, LogSection, Phase, TurnOrder};
 use crate::error::AppError;
 use crate::service::board_loader::load_board_state;
 use crate::service::move_rebels::start_rebel_movement;
@@ -64,9 +63,9 @@ pub(crate) async fn record_conversion(
         }
         None => return Err(AppError::ConversionRequired),
     };
-    EventRecord::insert(conn, game.id, game.turn, &message).await?;
+    EventRecord::insert(conn, game.id, game.turn, LogSection::Conversions, &message).await?;
 
-    let order = TurnOrder::new(PLAYER_COUNT as i64, game.first_seat);
+    let order = TurnOrder::new(game.player_count, game.first_seat);
     game.active_seat = order.next_after(player.seat);
     if game.active_seat.is_none() {
         start_rebel_movement(conn, game).await?;

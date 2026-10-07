@@ -1,7 +1,7 @@
 use sqlx::SqliteConnection;
 
 use crate::db::{EventRecord, FanaticRecord, GameRecord, PlayerRecord};
-use crate::domain::{Phase, TurnOrder};
+use crate::domain::{LogSection, Phase, TurnOrder};
 use crate::error::AppError;
 
 /// Closes the turn: discards the fanatics revealed in the great hall, resets the players'
@@ -29,7 +29,14 @@ pub async fn end_turn(
 
     if game.turn >= game.max_turns {
         game.phase = Phase::Finished;
-        return EventRecord::insert(conn, game.id, game.turn, &winners_message(players)).await;
+        return EventRecord::insert(
+            conn,
+            game.id,
+            game.turn,
+            LogSection::Turn,
+            &winners_message(players),
+        )
+        .await;
     }
     game.turn += 1;
     game.first_seat = TurnOrder::new(players.len() as i64, game.first_seat)
@@ -42,7 +49,7 @@ pub async fn end_turn(
         .map(|player| player.name.as_str())
         .unwrap_or_default();
     let message = format!("Tour {} : {first_name} joue en premier.", game.turn);
-    EventRecord::insert(conn, game.id, game.turn, &message).await
+    EventRecord::insert(conn, game.id, game.turn, LogSection::Turn, &message).await
 }
 
 /// Returns the French announcement of the richest player(s).

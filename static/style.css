@@ -88,7 +88,16 @@ button:hover { filter: brightness(1.15); }
 .quota tr.current { background: var(--error-bg); font-weight: bold; }
 
 .log { flex: 1; min-height: 0; overflow-y: auto; }
-.log li { padding: 3px 0; border-bottom: 1px dotted var(--border); }
+.log li { padding: 3px 6px; border-bottom: 1px solid rgba(0, 0, 0, 0.06); }
+/* One light background per phase of the rules. */
+.log li.section-turn { background: #e9dfcb; font-weight: bold; }
+.log li.section-announcements { background: #fbebd5; }
+.log li.section-conversions { background: #e6edf8; }
+.log li.section-production { background: #e7f2df; }
+.log li.section-fanatics { background: #f7e2ea; }
+.log li.section-peddlers { background: #fbf3cf; }
+.log li.section-city_sales { background: #ebe5f5; }
+.log li.section-purchases { background: #def0ee; }
 .log-turn { color: var(--muted); font-size: 0.85rem; margin-right: 4px; }
 
 /* The map (2780×2289) and its tokens keep their pixel coordinates; board.js scales the whole board to the width left
@@ -193,6 +202,8 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--accent); }
 .items-table th, .items-table td { padding: 4px 10px; border-bottom: 1px solid var(--border); text-align: left; }
 .items-table td { vertical-align: middle; }
 .items-table td img { vertical-align: middle; }
+.items-table th.price-group { text-align: center; }
+.items-table td.price { text-align: right; font-variant-numeric: tabular-nums; }
 .purchase-layout { display: flex; flex-wrap: wrap; gap: 16px 48px; align-items: flex-start; }
 .move-counter { color: var(--muted); font-style: italic; }
 button.secondary { background: var(--panel); color: var(--accent); border: 1px solid var(--accent); }
@@ -262,4 +273,3 @@ button:disabled { opacity: 0.5; cursor: not-allowed; filter: none; }
 .floating .legend summary { cursor: pointer; color: var(--accent); }
 .floating .legend .board-legend { margin: 6px 0 0; }
 .floating .banner-phase { display: none; }
-.floating-log { max-height: 50vh; }

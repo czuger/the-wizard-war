@@ -1,7 +1,7 @@
 use sqlx::{SqliteConnection, SqlitePool};
 
 use crate::db::{EventRecord, GameRecord, PlayerRecord};
-use crate::domain::{ItemCounts, Phase, TurnOrder};
+use crate::domain::{ItemCounts, LogSection, Phase, TurnOrder};
 use crate::error::AppError;
 use crate::service::peddler_turns::start_peddlers;
 use crate::service::player_action::PlayerAction;
@@ -64,7 +64,7 @@ pub(crate) async fn record_production(
         player.name,
         items.total()
     );
-    EventRecord::insert(conn, game.id, game.turn, &message).await?;
+    EventRecord::insert(conn, game.id, game.turn, LogSection::Production, &message).await?;
 
     let mut players = PlayerRecord::list_for_game(conn, game.id).await?;
     let order = TurnOrder::new(players.len() as i64, game.first_seat);

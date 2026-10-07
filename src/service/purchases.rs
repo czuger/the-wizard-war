@@ -2,7 +2,7 @@ use sqlx::{SqliteConnection, SqlitePool};
 
 use crate::db::{EventRecord, GameRecord, PawnRecord, PlayerRecord};
 use crate::domain::rules::{BANK_CLOSED_TURNS, LABORATORY_COUNT};
-use crate::domain::{Holdings, Location, PawnKind, Phase, Purchase};
+use crate::domain::{Holdings, Location, LogSection, PawnKind, Phase, Purchase};
 use crate::error::AppError;
 use crate::service::end_turn::end_turn;
 use crate::service::player_action::PlayerAction;
@@ -92,7 +92,7 @@ pub(crate) async fn record_purchase(
     player.money += purchase.refund() - purchase.cost();
     player.save(conn).await?;
     let message = describe(&player.name, &purchase);
-    EventRecord::insert(conn, game.id, game.turn, &message).await?;
+    EventRecord::insert(conn, game.id, game.turn, LogSection::Purchases, &message).await?;
     advance(conn, game, Some(player.seat)).await
 }
 

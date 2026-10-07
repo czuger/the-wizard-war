@@ -1,7 +1,7 @@
 use sqlx::{SqliteConnection, SqlitePool};
 
 use crate::db::{EventRecord, FanaticRecord, GameRecord, PlayerRecord};
-use crate::domain::Phase;
+use crate::domain::{LogSection, Phase};
 use crate::error::AppError;
 use crate::service::player_action::PlayerAction;
 use crate::service::write_transaction::begin_write;
@@ -59,7 +59,14 @@ pub(crate) async fn record_announcement(
     };
     player.announcement_done = true;
     player.save(conn).await?;
-    EventRecord::insert(conn, game.id, game.turn, &message).await?;
+    EventRecord::insert(
+        conn,
+        game.id,
+        game.turn,
+        LogSection::Announcements,
+        &message,
+    )
+    .await?;
 
     let players = PlayerRecord::list_for_game(conn, game.id).await?;
     if players.iter().all(|other| other.announcement_done) {

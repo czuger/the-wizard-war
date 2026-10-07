@@ -5,7 +5,7 @@ use sqlx::{SqliteConnection, SqlitePool};
 use crate::db::{EventRecord, GameRecord, PawnRecord, PlayerRecord, RebelRecord};
 use crate::domain::board::site_by_id;
 use crate::domain::rebel_movement::village_destinations;
-use crate::domain::{Location, Phase, SiteId};
+use crate::domain::{Location, LogSection, Phase, SiteId};
 use crate::error::AppError;
 use crate::service::player_action::PlayerAction;
 use crate::service::rebel_fights::continue_rebel_fights;
@@ -91,7 +91,7 @@ pub(crate) async fn record_rebel_moves(
             site_name(from),
             site_name(Some(rebel_move.to))
         );
-        EventRecord::insert(conn, game.id, game.turn, &message).await?;
+        EventRecord::insert(conn, game.id, game.turn, LogSection::Conversions, &message).await?;
         let meets_pawns = pawns
             .iter()
             .any(|pawn| pawn.location == Location::Site(rebel_move.to));

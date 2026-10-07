@@ -2,8 +2,8 @@ use rand::RngExt;
 use sqlx::SqliteConnection;
 
 use crate::db::{EventRecord, GameRecord, PawnRecord, RebelRecord};
-use crate::domain::FightOutcome;
 use crate::domain::board::site_by_id;
+use crate::domain::{FightOutcome, LogSection};
 use crate::error::AppError;
 
 /// Fights a rebels pawn against a peddler or caravan, then removes the rebels pawn.
@@ -49,5 +49,12 @@ pub(crate) async fn fight(
         "Les rebelles attaquent {} de {owner} à {site} (dé : {die}) : {result}. Les rebelles quittent le jeu.",
         pawn.kind.with_article()
     );
-    EventRecord::insert(conn, game.id, game.turn, &message).await
+    EventRecord::insert(
+        conn,
+        game.id,
+        game.turn,
+        LogSection::of(game.phase),
+        &message,
+    )
+    .await
 }

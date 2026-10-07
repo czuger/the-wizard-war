@@ -1,6 +1,6 @@
 use askama::Template;
 
-use crate::domain::{ItemCounts, MagicItem};
+use crate::domain::{ItemCounts, MagicItem, Zone, market};
 use crate::service::{ConversionOption, FightView, GameView, MoveChoice, RebelChoice, SaleChoice};
 use crate::web::screen::Screen;
 
@@ -14,6 +14,19 @@ pub struct ItemLine {
     pub label: &'static str,
     /// Number of items.
     pub count: i64,
+}
+
+/// One row of the production table: an item kind with its supply, stock and buying prices.
+pub struct ProductionLine {
+    /// The item and how many are left in the supply.
+    pub supply: ItemLine,
+    /// How many the viewing player has in stock.
+    pub stock: i64,
+    /// Table 1 price paid by a buying site of each zone, in [`Zone::ALL`] order, `—` where
+    /// no site of the zone buys it.
+    pub site_prices: Vec<String>,
+    /// Table 1 price paid by the city in phase VI.
+    pub city_price: i64,
 }
 
 /// The page a player plays from.
@@ -56,14 +69,29 @@ impl GamePage {
         GamePage::lines(&self.view.me.stock)
     }
 
-    /// How many items of a kind, given by its [`MagicItem::key`], the viewing player has.
-    pub fn stock_of(&self, key: &str) -> i64 {
-        MagicItem::from_key(key).map_or(0, |item| self.view.me.stock.get(item))
-    }
-
     /// Items left in the supply, by kind.
     pub fn supply_lines(&self) -> Vec<ItemLine> {
         GamePage::lines(&self.view.supply)
+    }
+
+    /// Rows of the production table, one per item kind.
+    pub fn production_lines(&self) -> Vec<ProductionLine> {
+        MagicItem::ALL
+            .iter()
+            .zip(self.supply_lines())
+            .map(|(&item, supply)| ProductionLine {
+                supply,
+                stock: self.view.me.stock.get(item),
+                site_prices: Zone::ALL
+                    .iter()
+                    .map(|&zone| {
+                        market::zone_price(item, zone)
+                            .map_or_else(|| "—".to_string(), |price| price.to_string())
+                    })
+                    .collect(),
+                city_price: market::city_price(item),
+            })
+            .collect()
     }
 
     /// French name of the viewing player's district.

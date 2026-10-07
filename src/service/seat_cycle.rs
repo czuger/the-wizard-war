@@ -1,10 +1,9 @@
 use crate::db::GameRecord;
 use crate::domain::TurnOrder;
-use crate::domain::rules::PLAYER_COUNT;
 
 /// The seats of the current turn, from its first player, going left.
 pub(crate) fn seats_in_turn_order(game: &GameRecord) -> Vec<i64> {
-    let order = TurnOrder::new(PLAYER_COUNT as i64, game.first_seat);
+    let order = TurnOrder::new(game.player_count, game.first_seat);
     std::iter::successors(Some(order.first_seat()), |seat| order.next_after(*seat)).collect()
 }
 

@@ -16,6 +16,15 @@ const POOL_COMPOSITION: [(Cult, i64, usize); 6] = [
     (Cult::Yaboul, 3, 3),
 ];
 
+/// The hands dealt at setup, and the pawns left in the box.
+#[derive(Debug, Clone)]
+pub struct FanaticDeal {
+    /// One hand per player, in seat order.
+    pub hands: Vec<Vec<Fanatic>>,
+    /// Pawns dealt to nobody: there are some with fewer than 6 players.
+    pub spare: Vec<Fanatic>,
+}
+
 /// The fanatic pawns dealt to the players at setup.
 #[derive(Debug, Clone)]
 pub struct FanaticPool {
@@ -53,16 +62,16 @@ impl FanaticPool {
     ///
     /// # Returns
     /// `None` for an unsupported player count.
-    pub fn deal<R: Rng>(mut self, player_count: usize, rng: &mut R) -> Option<Vec<Vec<Fanatic>>> {
+    pub fn deal<R: Rng>(mut self, player_count: usize, rng: &mut R) -> Option<FanaticDeal> {
         let per_player = FanaticPool::tokens_per_player(player_count)?;
         self.tokens.shuffle(rng);
+        let spare = self.tokens.split_off(per_player * player_count);
         let hands = self
             .tokens
             .chunks(per_player)
-            .take(player_count)
             .map(<[Fanatic]>::to_vec)
             .collect();
-        Some(hands)
+        Some(FanaticDeal { hands, spare })
     }
 }
 
@@ -83,9 +92,10 @@ mod tests {
     fn deal_sizes_follow_player_count() {
         let mut rng = rand::rng();
         for (players, per_player) in [(2, 6), (3, 5), (4, 5), (5, 4), (6, 4)] {
-            let hands = FanaticPool::full().deal(players, &mut rng).unwrap();
-            assert_eq!(hands.len(), players);
-            assert!(hands.iter().all(|hand| hand.len() == per_player));
+            let deal = FanaticPool::full().deal(players, &mut rng).unwrap();
+            assert_eq!(deal.hands.len(), players);
+            assert!(deal.hands.iter().all(|hand| hand.len() == per_player));
+            assert_eq!(deal.spare.len(), 24 - players * per_player);
         }
         assert!(FanaticPool::full().deal(7, &mut rng).is_none());
     }

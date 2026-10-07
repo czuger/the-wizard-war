@@ -44,8 +44,8 @@ pub enum AppError {
     /// The player has already acted in this phase.
     #[error("Vous avez déjà joué cette phase.")]
     AlreadyDone,
-    /// The fanatic pawns cannot be dealt to this number of players.
-    #[error("Ce nombre de joueurs n'est pas pris en charge.")]
+    /// The number of players is not between 2 and 6.
+    #[error("Le nombre de joueurs doit être compris entre 2 et 6.")]
     InvalidPlayerCount,
     /// The player name is empty, too long or taken by a computer-controlled alchemist.
     #[error(

@@ -2,8 +2,7 @@ use sqlx::{SqliteConnection, SqlitePool};
 
 use crate::db::{EventRecord, GameRecord, PlayerRecord};
 use crate::domain::market::{city_price, city_sale_quota};
-use crate::domain::rules::PLAYER_COUNT;
-use crate::domain::{MagicItem, Phase};
+use crate::domain::{LogSection, MagicItem, Phase};
 use crate::error::AppError;
 use crate::service::player_action::PlayerAction;
 use crate::service::purchases::start_purchases;
@@ -25,7 +24,7 @@ pub(crate) async fn start_city_sales(
         "Dépense collective du tour : {} écus. Avec {laboratories} laboratoires, la ville achète jusqu'à {quota} objet(s).",
         game.collective_expense
     );
-    EventRecord::insert(conn, game.id, game.turn, &message).await?;
+    EventRecord::insert(conn, game.id, game.turn, LogSection::CitySales, &message).await?;
     game.collective_expense = 0;
     game.phase = Phase::CitySales;
     game.city_sales_left = quota;
@@ -103,7 +102,7 @@ pub(crate) async fn record_city_sale(
             format!("{} ne vend rien en ville.", player.name)
         }
     };
-    EventRecord::insert(conn, game.id, game.turn, &message).await?;
+    EventRecord::insert(conn, game.id, game.turn, LogSection::CitySales, &message).await?;
     advance(conn, game, player.seat).await
 }
 
@@ -122,7 +121,7 @@ async fn advance(
     if game.city_sales_left <= 0 || game.city_passes >= sellers.len() as i64 {
         return start_purchases(conn, game).await;
     }
-    let count = PLAYER_COUNT as i64;
+    let count = game.player_count;
     game.active_seat = (1..=count)
         .map(|step| (seat + step) % count)
         .find(|next| sellers.contains(next));
