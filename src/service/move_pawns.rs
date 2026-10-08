@@ -9,15 +9,15 @@ use crate::domain::{ItemCounts, Location, LogSection, PawnOrder, Phase};
 use crate::error::AppError;
 use crate::service::board_loader::load_board_state;
 use crate::service::pawn_fight::fight;
-use crate::service::pawn_rules::sale_offer;
+use crate::service::pawn_rules::{can_transfer, sale_offer};
 use crate::service::peddler_turns::finish_peddler_turn;
 use crate::service::player_action::PlayerAction;
 use crate::service::write_transaction::begin_write;
 
 /// Phase V.1: the active player moves their peddlers and caravans.
 ///
-/// A pawn ending its move on rebels fights them. The player then sells, or the next
-/// player moves when none of their pawns can sell.
+/// A pawn ending its move on rebels fights them. The player then sells and passes items
+/// between their pawns, or the next player moves when none of their pawns can do either.
 ///
 /// # Arguments
 /// * `orders` - one order per pawn that moves; the other pawns stay where they are.
@@ -72,7 +72,7 @@ pub(crate) async fn record_pawn_moves(
     for pawn in moved {
         fight_rebels_on_arrival(conn, game, &player.name, pawn).await?;
     }
-    if !can_sell(conn, game, player.id).await? {
+    if !can_sell_or_transfer(conn, game, player.id).await? {
         finish_peddler_turn(conn, game, player.seat).await?;
     }
     Ok(())
@@ -166,17 +166,22 @@ async fn fight_rebels_on_arrival(
     }
 }
 
-/// Whether one of the player's pawns can sell where it stands.
-pub(crate) async fn can_sell(
+/// Whether one of the player's pawns can sell where it stands, or pass its item to another
+/// of their pawns there.
+async fn can_sell_or_transfer(
     conn: &mut SqliteConnection,
     game: &GameRecord,
     player_id: i64,
 ) -> Result<bool, AppError> {
     let board = load_board_state(conn, game.id).await?;
     let sold = SaleRecord::sites_sold(conn, game.id, game.turn).await?;
-    let pawns = PawnRecord::list_for_game(conn, game.id).await?;
-    Ok(pawns
-        .iter()
+    let mine: Vec<PawnRecord> = PawnRecord::list_for_game(conn, game.id)
+        .await?
+        .into_iter()
         .filter(|pawn| pawn.player_id == player_id)
-        .any(|pawn| sale_offer(pawn, &board, &sold).is_some()))
+        .collect();
+    Ok(mine.iter().any(|pawn| {
+        sale_offer(pawn, &board, &sold).is_some()
+            || mine.iter().any(|other| can_transfer(pawn, other))
+    }))
 }

@@ -14,7 +14,7 @@ use crate::domain::{
 use crate::error::AppError;
 use crate::service::{
     GameView, RebelMove, announce_fanatic, attack_pawn, buy_from_bank, convert_site, move_pawns,
-    move_rebels, pay_expense, produce_items, sell_in_city, sell_items,
+    move_rebels, pay_expense, produce_items, sell_in_city, sell_items, transfer_item,
 };
 use crate::web::app_state::AppState;
 use crate::web::game_page::GamePage;
@@ -63,6 +63,14 @@ pub struct FightForm {
 pub struct CitySaleForm {
     #[serde(default)]
     item: String,
+}
+
+/// The transfer button: the giving and receiving pawns' ids, from
+/// [`TransferChoice::value`](crate::service::TransferChoice::value).
+#[derive(Debug, Deserialize)]
+pub struct TransferForm {
+    #[serde(default)]
+    transfer: String,
 }
 
 /// The purchase form: how many of each thing to buy or sell back.
@@ -218,6 +226,19 @@ pub async fn sell(
     respond(&state, game_id, &token, result).await
 }
 
+/// `POST …/transfer`
+pub async fn transfer(
+    State(state): State<AppState>,
+    Path((game_id, token)): Path<(i64, String)>,
+    Form(form): Form<TransferForm>,
+) -> Result<Response, AppError> {
+    let result = match parse_transfer(&form.transfer) {
+        Ok((from, to)) => transfer_item(&state.pool, game_id, &token, from, to).await,
+        Err(error) => Err(error),
+    };
+    respond(&state, game_id, &token, result).await
+}
+
 /// `POST …/city-sale`
 pub async fn sell_city(
     State(state): State<AppState>,
@@ -269,6 +290,15 @@ fn parse_pawn_orders(form: &HashMap<String, String>) -> Result<Vec<PawnOrder>, A
         .collect::<Result<_, AppError>>()?;
     orders.sort_by_key(|order| order.pawn_id);
     Ok(orders)
+}
+
+fn parse_transfer(value: &str) -> Result<(i64, i64), AppError> {
+    let (from, to) = value
+        .trim()
+        .split_once('-')
+        .ok_or(AppError::InvalidTransfer)?;
+    let id = |text: &str| text.parse().map_err(|_| AppError::InvalidTransfer);
+    Ok((id(from)?, id(to)?))
 }
 
 fn parse_purchase(form: &PurchaseForm) -> Result<Purchase, AppError> {

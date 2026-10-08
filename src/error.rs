@@ -104,6 +104,11 @@ pub enum AppError {
         "Ce pion ne peut pas vendre ici : le lieu doit acheter cet objet et, sauf un monastère, n'avoir rien acheté d'autre ce tour-ci."
     )]
     InvalidSale,
+    /// The two pawns may not pass an item between them.
+    #[error(
+        "Passage impossible : les deux pions doivent être à vous, sur le même lieu hors de la ville, et le premier doit porter un objet différent de celui du second."
+    )]
+    InvalidTransfer,
     /// The player does not have this item in stock.
     #[error("Vous n'avez pas cet objet en stock.")]
     NotInStock,

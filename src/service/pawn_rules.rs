@@ -25,3 +25,14 @@ pub(crate) fn sale_offer(
     }
     sale_price(site, board.marker(site.id), item)
 }
+
+/// Whether `from` may pass its item to `to` in phase V.2: two pawns of the same owner on the
+/// same site, `from` loaded. When `to` is loaded too, they swap their (different) items.
+pub(crate) fn can_transfer(from: &PawnRecord, to: &PawnRecord) -> bool {
+    from.id != to.id
+        && from.player_id == to.player_id
+        && from.location.site().is_some()
+        && from.location == to.location
+        && from.item.is_some()
+        && from.item != to.item
+}

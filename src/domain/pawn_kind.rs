@@ -71,6 +71,22 @@ impl PawnKind {
             PawnKind::Caravan => "la caravane",
         }
     }
+
+    /// Returns the French name after « à », e.g. « au colporteur ».
+    pub fn to_article(self) -> &'static str {
+        match self {
+            PawnKind::Peddler => "au colporteur",
+            PawnKind::Caravan => "à la caravane",
+        }
+    }
+
+    /// Returns the French name of another pawn of the same kind, e.g. « une autre caravane ».
+    pub fn another(self) -> &'static str {
+        match self {
+            PawnKind::Peddler => "un autre colporteur",
+            PawnKind::Caravan => "une autre caravane",
+        }
+    }
 }
 
 #[cfg(test)]

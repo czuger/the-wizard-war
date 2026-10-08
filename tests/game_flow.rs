@@ -1,3 +1,4 @@
+use askama::Template;
 use sqlx::SqlitePool;
 use wizard_war::db::{
     self, FanaticRecord, GameRecord, PawnRecord, PlayerRecord, SpareFanaticRecord,
@@ -11,7 +12,7 @@ use wizard_war::error::AppError;
 use wizard_war::service::{
     CreatedGame, GameSettings, GameView, RebelMove, announce_fanatic, attack_pawn, buy_from_bank,
     convert_site, create_game, move_pawns, move_rebels, pay_expense, produce_items, required_items,
-    sell_in_city, sell_items,
+    sell_in_city, sell_items, transfer_item,
 };
 
 async fn new_game(max_turns: i64) -> (SqlitePool, CreatedGame) {
@@ -766,6 +767,122 @@ async fn peddlers_carry_items_out_and_sell_them() {
         .find(|pawn| pawn.id == peddler.id)
         .unwrap();
     assert_eq!(sold.item, None);
+}
+
+#[tokio::test]
+async fn pawns_on_the_same_site_pass_or_swap_their_items() {
+    let (pool, created) = new_game(30).await;
+    let (id, token) = (created.game_id, &created.human_token);
+    let ready = play_until(&pool, &created, |game, human| {
+        game.phase == Phase::Peddlers && game.active_seat == Some(HUMAN_SEAT) && !human.moves_done
+    })
+    .await;
+    assert!(ready, "the human never had to move pawns");
+    let human = players(&pool, id).await.remove(HUMAN_SEAT as usize);
+    let mut conn = pool.acquire().await.unwrap();
+    PawnRecord::insert(&mut conn, id, human.id, PawnKind::Caravan)
+        .await
+        .unwrap();
+    drop(conn);
+    let mine: Vec<PawnRecord> = pawns(&pool, id)
+        .await
+        .into_iter()
+        .filter(|pawn| pawn.player_id == human.id)
+        .collect();
+    let rival = pawns(&pool, id)
+        .await
+        .into_iter()
+        .find(|pawn| pawn.player_id != human.id);
+    // A talisman never sells in an outskirts village: only the transfer keeps the step open.
+    let village = Location::Site(SiteId(27));
+    let mut peddler = *mine
+        .iter()
+        .find(|pawn| pawn.kind == PawnKind::Peddler)
+        .unwrap();
+    let mut caravan = *mine.last().unwrap();
+    let mut conn = pool.acquire().await.unwrap();
+    for pawn in &mine {
+        let mut pawn = *pawn;
+        pawn.location = Location::City;
+        pawn.item = None;
+        pawn.save(&mut conn).await.unwrap();
+    }
+    peddler.location = village;
+    peddler.item = Some(MagicItem::Toratsa);
+    peddler.save(&mut conn).await.unwrap();
+    caravan.location = village;
+    caravan.save(&mut conn).await.unwrap();
+    drop(conn);
+    assert!(matches!(
+        transfer_item(&pool, id, token, peddler.id, caravan.id).await,
+        Err(AppError::WrongPhase)
+    ));
+
+    move_pawns(&pool, id, token, Vec::new()).await.unwrap();
+    let view = GameView::load(&pool, id, token).await.unwrap();
+    assert!(view.can_sell_items(), "the transfer keeps the sales step");
+    assert!(view.trade.sale_choices.is_empty());
+    let choice = &view.trade.transfer_choices[0];
+    assert_eq!(view.trade.transfer_choices.len(), 1);
+    assert_eq!(
+        (choice.from_pawn_id, choice.to_pawn_id),
+        (peddler.id, caravan.id)
+    );
+    assert_eq!(
+        choice.label,
+        "Passer un talisman Toratsa à la caravane vide"
+    );
+    let html = wizard_war::web::GamePage::new(view, None).render().unwrap();
+    assert!(html.contains(&format!(
+        r#"formaction="/games/{id}/players/{token}/transfer" name="transfer" value="{}-{}""#,
+        peddler.id, caravan.id
+    )));
+
+    for (from, to) in [(caravan.id, peddler.id), (peddler.id, peddler.id)] {
+        assert!(matches!(
+            transfer_item(&pool, id, token, from, to).await,
+            Err(AppError::InvalidTransfer)
+        ));
+    }
+    if let Some(rival) = rival {
+        assert!(matches!(
+            transfer_item(&pool, id, token, peddler.id, rival.id).await,
+            Err(AppError::InvalidTransfer)
+        ));
+    }
+    transfer_item(&pool, id, token, peddler.id, caravan.id)
+        .await
+        .unwrap();
+    let item_of = |pawns: &[PawnRecord], id: i64| pawns.iter().find(|p| p.id == id).unwrap().item;
+    let after = pawns(&pool, id).await;
+    assert_eq!(item_of(&after, peddler.id), None);
+    assert_eq!(item_of(&after, caravan.id), Some(MagicItem::Toratsa));
+    let game = game_record(&pool, id).await;
+    assert_eq!(
+        (game.phase, game.active_seat),
+        (Phase::Peddlers, Some(HUMAN_SEAT))
+    );
+
+    let mut conn = pool.acquire().await.unwrap();
+    peddler.item = Some(MagicItem::Xephis);
+    peddler.save(&mut conn).await.unwrap();
+    drop(conn);
+    transfer_item(&pool, id, token, caravan.id, peddler.id)
+        .await
+        .unwrap();
+    let after = pawns(&pool, id).await;
+    assert_eq!(item_of(&after, peddler.id), Some(MagicItem::Toratsa));
+    assert_eq!(item_of(&after, caravan.id), Some(MagicItem::Xephis));
+    let view = GameView::load(&pool, id, token).await.unwrap();
+    let messages: Vec<&str> = view.events.iter().map(|e| e.message.as_str()).collect();
+    assert!(messages.contains(&"Ana : le colporteur passe son objet à la caravane à Vignelles."));
+    sell_items(&pool, id, token, Vec::new()).await.unwrap();
+    assert!(
+        !GameView::load(&pool, id, token)
+            .await
+            .unwrap()
+            .can_sell_items()
+    );
 }
 
 #[tokio::test]

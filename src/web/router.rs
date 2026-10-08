@@ -51,6 +51,10 @@ pub fn build_router(state: AppState, asset_root: &Path) -> Router {
         )
         .route(&format!("{player_path}/sales"), post(action_handlers::sell))
         .route(
+            &format!("{player_path}/transfer"),
+            post(action_handlers::transfer),
+        )
+        .route(
             &format!("{player_path}/city-sale"),
             post(action_handlers::sell_city),
         )

@@ -1,7 +1,9 @@
 use askama::Template;
 
 use crate::domain::{ItemCounts, MagicItem, Zone, market};
-use crate::service::{ConversionOption, FightView, GameView, MoveChoice, RebelChoice, SaleChoice};
+use crate::service::{
+    ConversionOption, FightView, GameView, MoveChoice, RebelChoice, SaleChoice, TransferChoice,
+};
 use crate::web::screen::Screen;
 
 /// One kind of magic item with a count, as shown on the page.
@@ -157,5 +159,22 @@ impl GamePage {
             .sale_choices
             .iter()
             .find(|choice| choice.pawn_id == *pawn_id)
+    }
+
+    /// The items one of the viewing player's pawns may pass to their other pawns where it
+    /// stands.
+    pub fn transfers_from(&self, pawn_id: &i64) -> Vec<&TransferChoice> {
+        self.view
+            .trade
+            .transfer_choices
+            .iter()
+            .filter(|choice| choice.from_pawn_id == *pawn_id)
+            .collect()
+    }
+
+    /// Whether one of the viewing player's pawns has a menu on the map to sell or pass its
+    /// item.
+    pub fn has_pawn_menu(&self, pawn_id: &i64) -> bool {
+        self.sale_for(pawn_id).is_some() || !self.transfers_from(pawn_id).is_empty()
     }
 }

@@ -245,6 +245,11 @@ button:disabled { opacity: 0.5; cursor: not-allowed; filter: none; }
 .token-menu > summary { list-style: none; position: relative; }
 .seller-badge { position: absolute; right: -8px; top: -8px; width: 22px; height: 22px; opacity: 0.4; }
 .token-menu:has(input:checked) .seller-badge { opacity: 1; }
+.transfer-badge {
+  position: absolute; right: -8px; top: -8px; width: 22px; height: 22px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center; font-size: 14px; line-height: 1;
+  background: var(--panel); color: var(--accent); border: 1px solid var(--border);
+}
 .menu.menu-up { top: auto; bottom: calc(100% + 8px); transform-origin: bottom center; }
 .cargo-chooser { top: auto; transform: translate(-50%, 24px) scale(calc(1 / var(--board-scale, 1))); }
 .cargo-chooser.menu-up { bottom: auto; transform-origin: bottom center; transform: translate(-50%, calc(-100% - 24px)) scale(calc(1 / var(--board-scale, 1))); }

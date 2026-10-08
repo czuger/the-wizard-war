@@ -7,7 +7,7 @@ use crate::domain::rules::LABORATORY_PRICE;
 use crate::domain::travel::destinations;
 use crate::domain::{BoardState, Holdings, Location, MagicItem, PawnKind, Phase, SiteId};
 use crate::error::AppError;
-use crate::service::pawn_rules::{is_movable, sale_offer};
+use crate::service::pawn_rules::{can_transfer, is_movable, sale_offer};
 use crate::service::purchases::holdings_of;
 use crate::service::rebel_fights::pending_fight;
 
@@ -102,6 +102,24 @@ pub struct SaleChoice {
     pub checked: bool,
 }
 
+/// An item the viewing player may pass from one of their pawns to another on the same site.
+#[derive(Debug, Clone)]
+pub struct TransferChoice {
+    /// Id of the pawn that gives its item.
+    pub from_pawn_id: i64,
+    /// Id of the pawn that receives it.
+    pub to_pawn_id: i64,
+    /// French description, e.g. « Passer un grimoire Xéphis à la caravane vide ».
+    pub label: String,
+}
+
+impl TransferChoice {
+    /// Form value of the transfer: both pawn ids, giver first.
+    pub fn value(&self) -> String {
+        format!("{}-{}", self.from_pawn_id, self.to_pawn_id)
+    }
+}
+
 /// A pawn the rebels may attack.
 #[derive(Debug, Clone)]
 pub struct FightTarget {
@@ -148,6 +166,8 @@ pub struct TradeView {
     pub cargo_options: Vec<CargoOption>,
     /// Pawns that may sell, when it is the viewer's turn to sell in phase V.
     pub sale_choices: Vec<SaleChoice>,
+    /// Items to pass between pawns, when it is the viewer's turn to sell in phase V.
+    pub transfer_choices: Vec<TransferChoice>,
     /// The fight to settle, when the viewer is the first player in a fight.
     pub fight: Option<FightView>,
     /// The purchase form, when it is the viewer's turn in phase VII.
@@ -178,21 +198,26 @@ impl TradeView {
             _ => None,
         };
         let sold = SaleRecord::sites_sold(conn, game.id, game.turn).await?;
-        let peddler_turn = my_turn && game.phase == Phase::Peddlers;
+        let selling = my_turn && game.phase == Phase::Peddlers && me.moves_done;
         Ok(TradeView {
             tokens: tokens(&pawns, players),
             my_pawns: mine
                 .iter()
                 .map(|pawn| pawn_view(pawn, me, game.turn))
                 .collect(),
-            move_choices: if peddler_turn && !me.moves_done {
+            move_choices: if my_turn && game.phase == Phase::Peddlers && !me.moves_done {
                 move_choices(&mine, me, game.turn)
             } else {
                 Vec::new()
             },
             cargo_options: cargo_options(me),
-            sale_choices: if peddler_turn && me.moves_done {
+            sale_choices: if selling {
                 sale_choices(&mine, board, &sold)
+            } else {
+                Vec::new()
+            },
+            transfer_choices: if selling {
+                transfer_choices(&mine)
             } else {
                 Vec::new()
             },
@@ -330,6 +355,38 @@ fn sale_choices(mine: &[PawnRecord], board: &BoardState, sold: &[SiteId]) -> Vec
             })
         })
         .collect()
+}
+
+fn transfer_choices(mine: &[PawnRecord]) -> Vec<TransferChoice> {
+    mine.iter()
+        .flat_map(|from| {
+            mine.iter()
+                .filter(|to| can_transfer(from, to))
+                .filter_map(|to| {
+                    Some(TransferChoice {
+                        from_pawn_id: from.id,
+                        to_pawn_id: to.id,
+                        label: transfer_label(from.item?, to),
+                    })
+                })
+        })
+        .collect()
+}
+
+fn transfer_label(item: MagicItem, to: &PawnRecord) -> String {
+    match to.item {
+        Some(other) => format!(
+            "Échanger {} contre {} de {}",
+            item.with_article(),
+            other.with_article(),
+            to.kind.with_article()
+        ),
+        None => format!(
+            "Passer {} {} vide",
+            item.with_article(),
+            to.kind.to_article()
+        ),
+    }
 }
 
 async fn pending_fight_view(

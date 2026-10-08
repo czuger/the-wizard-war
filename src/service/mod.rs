@@ -27,6 +27,7 @@ mod seat_cycle;
 mod sell_items;
 mod strong_ai_players;
 mod trade_view;
+mod transfer_item;
 mod write_transaction;
 
 pub use announce_fanatic::announce_fanatic;
@@ -48,5 +49,6 @@ pub use rebel_fights::attack_pawn;
 pub use sell_items::sell_items;
 pub use trade_view::{
     CargoOption, FightTarget, FightView, MoveChoice, PawnToken, PawnView, PurchaseView, SaleChoice,
-    StopOption, TradeView,
+    StopOption, TradeView, TransferChoice,
 };
+pub use transfer_item::transfer_item;
