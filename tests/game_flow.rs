@@ -11,8 +11,8 @@ use wizard_war::domain::{
 use wizard_war::error::AppError;
 use wizard_war::service::{
     CreatedGame, GameSettings, GameView, RebelMove, announce_fanatic, attack_pawn, buy_from_bank,
-    convert_site, create_game, move_pawns, move_rebels, pay_expense, produce_items, required_items,
-    sell_in_city, sell_items, transfer_item,
+    convert_site, create_game, export_ai_log, move_pawns, move_rebels, pay_expense, produce_items,
+    required_items, sell_in_city, sell_items, transfer_item,
 };
 
 async fn new_game(max_turns: i64) -> (SqlitePool, CreatedGame) {
@@ -1035,4 +1035,30 @@ async fn hall_fanatics_stay_hidden_until_phase_iv_then_leave_at_turn_end() {
             .iter()
             .all(|token| token.title == "Fanatiques face cachée")
     );
+}
+
+#[tokio::test]
+async fn the_ai_log_explains_each_decision_and_sums_up_each_turn() {
+    for level in [AiLevel::Beginner, AiLevel::Strong] {
+        let (pool, created) = new_game_with(2, level, 3).await;
+        play_human_turn(&pool, &created).await;
+        play_human_turn(&pool, &created).await;
+        assert_eq!(
+            game_record(&pool, created.game_id).await.phase,
+            Phase::Finished
+        );
+        let log = export_ai_log(&pool, created.game_id).await.unwrap();
+        for name in &AI_NAMES[..2] {
+            assert!(
+                log.contains(&format!("· {name} ·")),
+                "{name} decided: {log}"
+            );
+        }
+        assert!(log.contains("decision: "), "{log}");
+        assert_eq!(log.matches("· table ·").count(), 2, "one summary a turn");
+        assert!(log.contains("End of turn 2 of 2"), "{log}");
+        if level == AiLevel::Strong {
+            assert!(log.contains("item values: "), "{log}");
+        }
+    }
 }

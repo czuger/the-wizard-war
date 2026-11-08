@@ -1,5 +1,6 @@
 //! Use cases: each player action runs in one write transaction and bumps the game version.
 
+mod ai_log;
 mod ai_outlook;
 mod ai_players;
 mod announce_fanatic;
@@ -30,6 +31,7 @@ mod trade_view;
 mod transfer_item;
 mod write_transaction;
 
+pub use ai_log::export_ai_log;
 pub use announce_fanatic::announce_fanatic;
 pub use board_view::{
     BoardView, ConversionOption, DestinationOption, PathView, RebelChoice, SiteView,

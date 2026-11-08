@@ -3,6 +3,7 @@ use sqlx::SqliteConnection;
 use crate::db::{EventRecord, FanaticRecord, GameRecord, PlayerRecord};
 use crate::domain::{LogSection, Phase, TurnOrder};
 use crate::error::AppError;
+use crate::service::ai_log::record_turn_summary;
 
 /// Closes the turn: discards the fanatics revealed in the great hall, resets the players'
 /// turn state, then either starts the next turn with
@@ -14,6 +15,7 @@ pub async fn end_turn(
     game: &mut GameRecord,
     players: &mut [PlayerRecord],
 ) -> Result<(), AppError> {
+    record_turn_summary(conn, game, players).await?;
     FanaticRecord::discard_hall(conn, game.id).await?;
     for player in players.iter_mut() {
         player.announcement_done = false;

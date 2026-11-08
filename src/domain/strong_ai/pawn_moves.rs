@@ -9,7 +9,7 @@ use crate::domain::strong_ai::buyer::{Buyer, buyers};
 use crate::domain::strong_ai::near_best::pick_near_best;
 use crate::domain::strong_ai::outlook::AiOutlook;
 use crate::domain::travel::{destinations, distance};
-use crate::domain::{ItemCounts, Location, MagicItem, PawnKind, PawnOrder, SiteId};
+use crate::domain::{DecisionTrace, ItemCounts, Location, MagicItem, PawnKind, PawnOrder, SiteId};
 
 /// Chooses the moves of the AI's movable pawns.
 ///
@@ -27,6 +27,7 @@ pub fn choose_pawn_moves<R: Rng>(
     outlook: &AiOutlook,
     movable: &[MovablePawn],
     rng: &mut R,
+    trace: &mut DecisionTrace,
 ) -> Vec<PawnOrder> {
     let mut pawns = movable.to_vec();
     pawns.sort_by_key(|pawn| match (pawn.location, pawn.item) {
@@ -39,6 +40,7 @@ pub fn choose_pawn_moves<R: Rng>(
         stock: outlook.stock,
         reserved: Vec::new(),
         rng,
+        trace,
     };
     pawns.iter().filter_map(|pawn| planner.plan(pawn)).collect()
 }
@@ -51,6 +53,7 @@ struct Planner<'a, R> {
     /// Buyers already chosen by another pawn of the AI.
     reserved: Vec<SiteId>,
     rng: &'a mut R,
+    trace: &'a mut DecisionTrace,
 }
 
 impl<R: Rng> Planner<'_, R> {
@@ -60,6 +63,7 @@ impl<R: Rng> Planner<'_, R> {
             (Location::Site(_), Some(item)) => {
                 // Already on the way: no second thoughts that would walk past a better sale.
                 let scored = self.scored_buyers(item, pawn);
+                self.trace.scores(&format!("{pawn:?}: buyers"), &scored);
                 let Some(buyer) = pick_near_best(scored, 0.0, self.rng) else {
                     return self.order(pawn, Location::City, None);
                 };
@@ -76,6 +80,10 @@ impl<R: Rng> Planner<'_, R> {
                     .flat_map(|item| self.scored_buyers(item, pawn))
                     .filter(|(_, worth)| *worth > 0.0)
                     .collect();
+                self.trace.scores(
+                    &format!("{pawn:?}: buyers of the stock {:?}", self.stock),
+                    &scored,
+                );
                 let tolerance = self.outlook.temperament.tolerance as f64;
                 let buyer = pick_near_best(scored, tolerance, self.rng)?;
                 let item = buyer.item;
@@ -186,7 +194,12 @@ mod tests {
             pawn(1, PawnKind::Peddler, Location::City, None),
             pawn(2, PawnKind::Peddler, Location::City, None),
         ];
-        let orders = choose_pawn_moves(&outlook, &movable, &mut rand::rng());
+        let orders = choose_pawn_moves(
+            &outlook,
+            &movable,
+            &mut rand::rng(),
+            &mut DecisionTrace::default(),
+        );
         assert_eq!(orders.len(), 2);
         assert_ne!(orders[0].to, orders[1].to);
         assert!(
@@ -203,7 +216,15 @@ mod tests {
         outlook.stock = ItemCounts::new(0, 0, 1);
         outlook.sale_turns = 1;
         let movable = [pawn(1, PawnKind::Peddler, Location::City, None)];
-        assert!(choose_pawn_moves(&outlook, &movable, &mut rand::rng()).is_empty());
+        assert!(
+            choose_pawn_moves(
+                &outlook,
+                &movable,
+                &mut rand::rng(),
+                &mut DecisionTrace::default()
+            )
+            .is_empty()
+        );
     }
 
     #[test]
@@ -211,18 +232,39 @@ mod tests {
         let mut outlook = outlook();
         outlook.board = board(&[(27, Cult::Yaboul)], &[]);
         let staying = pawn(1, PawnKind::Peddler, AT_27, Some(MagicItem::Yaboul));
-        assert!(choose_pawn_moves(&outlook, &[staying], &mut rand::rng()).is_empty());
+        assert!(
+            choose_pawn_moves(
+                &outlook,
+                &[staying],
+                &mut rand::rng(),
+                &mut DecisionTrace::default()
+            )
+            .is_empty()
+        );
         outlook.board = board(&[(27, Cult::Yaboul)], &[27]);
         let leaving = pawn(2, PawnKind::Peddler, Location::City, None);
         outlook.stock = ItemCounts::new(0, 0, 1);
-        assert!(choose_pawn_moves(&outlook, &[leaving], &mut rand::rng()).is_empty());
+        assert!(
+            choose_pawn_moves(
+                &outlook,
+                &[leaving],
+                &mut rand::rng(),
+                &mut DecisionTrace::default()
+            )
+            .is_empty()
+        );
     }
 
     #[test]
     fn empty_pawns_go_home() {
         let outlook = outlook();
         let empty = pawn(1, PawnKind::Peddler, AT_27, None);
-        let orders = choose_pawn_moves(&outlook, &[empty], &mut rand::rng());
+        let orders = choose_pawn_moves(
+            &outlook,
+            &[empty],
+            &mut rand::rng(),
+            &mut DecisionTrace::default(),
+        );
         assert_eq!(orders[0].to, Location::City);
     }
 }

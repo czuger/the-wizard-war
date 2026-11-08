@@ -10,8 +10,9 @@ use crate::domain::ai_trading::{
 use crate::domain::board::site_by_id;
 use crate::domain::market::buys_without_limit;
 use crate::domain::rebel_movement::random_destination;
-use crate::domain::{AiLevel, Fanatic, Phase};
+use crate::domain::{AiLevel, DecisionTrace, Fanatic, Phase};
 use crate::error::AppError;
+use crate::service::ai_log::DecisionContext;
 use crate::service::announce_fanatic::record_announcement;
 use crate::service::board_loader::load_board_state;
 use crate::service::city_sales::record_city_sale;
@@ -38,14 +39,17 @@ pub async fn play_ai_players(
     game: &mut GameRecord,
 ) -> Result<(), AppError> {
     while let Some(mut player) = next_ai_player(conn, game).await? {
+        let context = DecisionContext::capture(conn, game, &player).await?;
+        let mut trace = DecisionTrace::default();
         if game.phase == Phase::Peddlers && player.moves_done {
-            sell(conn, game, &mut player).await?;
-            continue;
+            sell(conn, game, &mut player, &mut trace).await?;
+        } else {
+            match game.ai_level {
+                AiLevel::Beginner => play_beginner(conn, game, &mut player, &mut trace).await?,
+                AiLevel::Strong => play_strong(conn, game, &mut player, &mut trace).await?,
+            }
         }
-        match game.ai_level {
-            AiLevel::Beginner => play_beginner(conn, game, &mut player).await?,
-            AiLevel::Strong => play_strong(conn, game, &mut player).await?,
-        }
+        context.record(conn, game, &player, &trace).await?;
     }
     Ok(())
 }
@@ -55,23 +59,26 @@ async fn play_beginner(
     conn: &mut SqliteConnection,
     game: &mut GameRecord,
     player: &mut PlayerRecord,
+    trace: &mut DecisionTrace,
 ) -> Result<(), AppError> {
     match game.phase {
-        Phase::Announcements => announce(conn, game, player).await?,
+        Phase::Announcements => announce(conn, game, player, trace).await?,
         Phase::Expenses => {
             let amount = choose_expense(player.money, &mut rand::rng());
+            trace.note(format!("decision: pay {amount}"));
             record_expense(conn, game, player, amount).await?;
         }
-        Phase::Conversions => convert(conn, game, player).await?,
-        Phase::RebelMovement => move_rebels(conn, game, player).await?,
-        Phase::RebelFights => attack(conn, game, player).await?,
-        Phase::Production => produce(conn, game, player).await?,
-        Phase::Peddlers => move_pawns(conn, game, player).await?,
+        Phase::Conversions => convert(conn, game, player, trace).await?,
+        Phase::RebelMovement => move_rebels(conn, game, player, trace).await?,
+        Phase::RebelFights => attack(conn, game, player, trace).await?,
+        Phase::Production => produce(conn, game, player, trace).await?,
+        Phase::Peddlers => move_pawns(conn, game, player, trace).await?,
         Phase::CitySales => {
             let item = choose_city_sale(player.stock);
+            trace.note(format!("decision: sell {item:?}"));
             record_city_sale(conn, game, player, item).await?;
         }
-        Phase::Purchases => buy(conn, game, player).await?,
+        Phase::Purchases => buy(conn, game, player, trace).await?,
         Phase::Finished => {}
     }
     Ok(())
@@ -104,6 +111,7 @@ async fn announce(
     conn: &mut SqliteConnection,
     game: &mut GameRecord,
     player: &mut PlayerRecord,
+    trace: &mut DecisionTrace,
 ) -> Result<(), AppError> {
     let available: Vec<FanaticRecord> = FanaticRecord::list_for_player(conn, player.id)
         .await?
@@ -115,6 +123,9 @@ async fn announce(
     let fanatic_id = choose_announcement(&hand, home_cult, &mut rand::rng())
         .and_then(|index| available.get(index))
         .map(|record| record.id);
+    trace.note(format!(
+        "hand {hand:?}; decision: send fanatic #{fanatic_id:?}"
+    ));
     record_announcement(conn, game, player, fanatic_id).await
 }
 
@@ -123,6 +134,7 @@ async fn produce(
     conn: &mut SqliteConnection,
     game: &mut GameRecord,
     player: &mut PlayerRecord,
+    trace: &mut DecisionTrace,
 ) -> Result<(), AppError> {
     let backed_cult = FanaticRecord::list_for_player(conn, player.id)
         .await?
@@ -132,6 +144,9 @@ async fn produce(
     let count = required_items(player.laboratories, &game.supply);
     let home_cult = player.temperament().home_cult;
     let items = choose_production(count, &game.supply, backed_cult, home_cult);
+    trace.note(format!(
+        "backed cult {backed_cult:?}; decision: make {items:?}"
+    ));
     record_production(conn, game, player, items).await
 }
 
@@ -140,6 +155,7 @@ async fn convert(
     conn: &mut SqliteConnection,
     game: &mut GameRecord,
     player: &PlayerRecord,
+    trace: &mut DecisionTrace,
 ) -> Result<(), AppError> {
     let hand: Vec<Fanatic> = FanaticRecord::list_for_player(conn, player.id)
         .await?
@@ -149,6 +165,7 @@ async fn convert(
     let board = load_board_state(conn, game.id).await?;
     let cult = preferred_cult(&hand, player.temperament().home_cult);
     let conversion = choose_conversion(&board, game.turn, cult, &mut rand::rng());
+    trace.note(format!("preferred cult {cult:?}; decision: {conversion:?}"));
     record_conversion(conn, game, player, conversion).await
 }
 
@@ -157,9 +174,11 @@ async fn move_rebels(
     conn: &mut SqliteConnection,
     game: &mut GameRecord,
     player: &PlayerRecord,
+    trace: &mut DecisionTrace,
 ) -> Result<(), AppError> {
     let rebels = RebelRecord::list_for_game(conn, game.id).await?;
     let moves = random_moves(&rebels);
+    trace.note(format!("decision: {moves:?}"));
     record_rebel_moves(conn, game, player, &moves).await
 }
 
@@ -182,6 +201,7 @@ async fn attack(
     conn: &mut SqliteConnection,
     game: &mut GameRecord,
     player: &PlayerRecord,
+    trace: &mut DecisionTrace,
 ) -> Result<(), AppError> {
     let targets: Vec<(i64, bool)> = pending_fight(conn, game.id)
         .await?
@@ -191,6 +211,9 @@ async fn attack(
         .map(|pawn| (pawn.id, pawn.player_id == player.id))
         .collect();
     let target = choose_fight_target(&targets, &mut rand::rng()).ok_or(AppError::WrongPhase)?;
+    trace.note(format!(
+        "targets (pawn, own) {targets:?}; decision: attack pawn #{target}"
+    ));
     record_rebel_attack(conn, game, player, target).await
 }
 
@@ -199,6 +222,7 @@ async fn move_pawns(
     conn: &mut SqliteConnection,
     game: &mut GameRecord,
     player: &mut PlayerRecord,
+    trace: &mut DecisionTrace,
 ) -> Result<(), AppError> {
     let movable: Vec<MovablePawn> = PawnRecord::list_for_game(conn, game.id)
         .await?
@@ -213,6 +237,7 @@ async fn move_pawns(
         .collect();
     let board = load_board_state(conn, game.id).await?;
     let orders = choose_pawn_moves(&board, &movable, player.stock);
+    trace.note(format!("movable {movable:?}; decision: {orders:?}"));
     record_pawn_moves(conn, game, player, &orders).await
 }
 
@@ -221,6 +246,7 @@ async fn sell(
     conn: &mut SqliteConnection,
     game: &mut GameRecord,
     player: &mut PlayerRecord,
+    trace: &mut DecisionTrace,
 ) -> Result<(), AppError> {
     let board = load_board_state(conn, game.id).await?;
     let mut sold = SaleRecord::sites_sold(conn, game.id, game.turn).await?;
@@ -236,6 +262,7 @@ async fn sell(
             sold.push(site.id);
         }
     }
+    trace.note(format!("decision: sell with pawns {sellers:?}"));
     record_sales(conn, game, player, &sellers).await
 }
 
@@ -244,10 +271,12 @@ async fn buy(
     conn: &mut SqliteConnection,
     game: &mut GameRecord,
     player: &mut PlayerRecord,
+    trace: &mut DecisionTrace,
 ) -> Result<(), AppError> {
     let players = PlayerRecord::list_for_game(conn, game.id).await?;
     let pawns = PawnRecord::list_for_game(conn, game.id).await?;
     let holdings = holdings_of(game, player, &players, &pawns);
     let purchase = choose_purchase(&holdings, player.laboratories);
+    trace.note(format!("{holdings:?}; decision: {purchase:?}"));
     record_purchase(conn, game, player, purchase).await
 }

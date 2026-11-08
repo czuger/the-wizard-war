@@ -2,6 +2,7 @@
 name = "wizard_war"
 version = "0.1.0"
 edition = "2024"
+default-run = "wizard_war"
 
 [dependencies]
 askama = "0.16.1"

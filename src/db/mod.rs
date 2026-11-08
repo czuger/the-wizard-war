@@ -1,5 +1,6 @@
 //! SQLite storage: one record type per table.
 
+mod ai_log_record;
 mod cult_marker_record;
 mod database;
 mod event_record;
@@ -11,6 +12,7 @@ mod rebel_record;
 mod sale_record;
 mod spare_fanatic_record;
 
+pub use ai_log_record::AiLogRecord;
 pub use cult_marker_record::CultMarkerRecord;
 pub use database::connect;
 pub use event_record::EventRecord;

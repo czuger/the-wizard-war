@@ -1,8 +1,8 @@
 //! Phase VI: whether the AI sells an item in the city, and which.
 
-use crate::domain::MagicItem;
 use crate::domain::market::city_price;
 use crate::domain::strong_ai::outlook::AiOutlook;
+use crate::domain::{DecisionTrace, MagicItem};
 
 /// Chooses the item to sell in the city.
 ///
@@ -12,18 +12,22 @@ use crate::domain::strong_ai::outlook::AiOutlook;
 ///
 /// # Returns
 /// `None` to pass.
-pub fn choose_city_sale(outlook: &AiOutlook) -> Option<MagicItem> {
+pub fn choose_city_sale(outlook: &AiOutlook, trace: &mut DecisionTrace) -> Option<MagicItem> {
     let values = outlook.item_values();
     let stock = outlook.stock;
     let worth = values.stock_value(&stock);
     MagicItem::ALL
         .into_iter()
         .filter(|&item| stock.get(item) > 0)
-        .filter_map(|item| {
+        .map(|item| {
             let kept = worth - values.stock_value(&stock.with(item, stock.get(item) - 1));
             let gain = city_price(item) - kept;
-            (gain > 0).then_some((item, gain))
+            trace.note(format!(
+                "{item:?}: worth {kept} in stock, gain {gain} in the city"
+            ));
+            (item, gain)
         })
+        .filter(|(_, gain)| *gain > 0)
         .max_by_key(|(_, gain)| *gain)
         .map(|(item, _)| item)
 }
@@ -43,9 +47,15 @@ mod tests {
         outlook.board = BoardState::new(markers, Vec::new());
         outlook.pawns = vec![pawn(1, PawnKind::Caravan, Location::City, None)];
         outlook.stock = ItemCounts::new(0, 0, 1);
-        assert_eq!(choose_city_sale(&outlook), None);
+        assert_eq!(
+            choose_city_sale(&outlook, &mut DecisionTrace::default()),
+            None
+        );
         outlook.stock = ItemCounts::new(0, 1, 1);
-        assert_eq!(choose_city_sale(&outlook), Some(MagicItem::Xephis));
+        assert_eq!(
+            choose_city_sale(&outlook, &mut DecisionTrace::default()),
+            Some(MagicItem::Xephis)
+        );
     }
 
     #[test]
@@ -53,8 +63,14 @@ mod tests {
         let mut outlook = outlook();
         outlook.sale_turns = 0;
         outlook.stock = ItemCounts::new(0, 0, 1);
-        assert_eq!(choose_city_sale(&outlook), Some(MagicItem::Yaboul));
+        assert_eq!(
+            choose_city_sale(&outlook, &mut DecisionTrace::default()),
+            Some(MagicItem::Yaboul)
+        );
         outlook.stock = ItemCounts::default();
-        assert_eq!(choose_city_sale(&outlook), None);
+        assert_eq!(
+            choose_city_sale(&outlook, &mut DecisionTrace::default()),
+            None
+        );
     }
 }

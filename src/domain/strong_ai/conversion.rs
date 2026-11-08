@@ -9,7 +9,7 @@ use crate::domain::strong_ai::item_values::ItemValues;
 use crate::domain::strong_ai::near_best::pick_near_best;
 use crate::domain::strong_ai::outlook::AiOutlook;
 use crate::domain::travel::distance;
-use crate::domain::{BoardState, Conversion, Cult, Fanatic, Location, MagicItem};
+use crate::domain::{BoardState, Conversion, Cult, DecisionTrace, Fanatic, Location, MagicItem};
 
 /// Worth, to a rival pawn, of each site that buys within its reach.
 const RIVAL_SITE_WORTH: i64 = 800;
@@ -30,9 +30,14 @@ const REBEL_THREAT: i64 = 1_500;
 ///
 /// # Returns
 /// `None` when no conversion is legal.
-pub fn choose_conversion<R: Rng>(outlook: &AiOutlook, rng: &mut R) -> Option<Conversion> {
+pub fn choose_conversion<R: Rng>(
+    outlook: &AiOutlook,
+    rng: &mut R,
+    trace: &mut DecisionTrace,
+) -> Option<Conversion> {
     let cult = favoured_cult(outlook);
-    let scored = outlook
+    trace.note(format!("favoured cult: {cult:?}"));
+    let scored: Vec<(Conversion, f64)> = outlook
         .board
         .legal_conversions(outlook.turn)
         .into_iter()
@@ -46,6 +51,7 @@ pub fn choose_conversion<R: Rng>(outlook: &AiOutlook, rng: &mut R) -> Option<Con
             ))
         })
         .collect();
+    trace.scores("conversions", &scored);
     pick_near_best(scored, outlook.temperament.tolerance as f64, rng)
 }
 
@@ -157,7 +163,8 @@ mod tests {
             .unwrap();
         let before = board_score(&outlook, &outlook.board);
         assert_eq!(board_score(&outlook, &replaced) - before, 5_000);
-        let choice = choose_conversion(&outlook, &mut rand::rng()).unwrap();
+        let choice =
+            choose_conversion(&outlook, &mut rand::rng(), &mut DecisionTrace::default()).unwrap();
         let chosen = outlook.board.after(&choice, 3).unwrap();
         assert!(board_score(&outlook, &chosen) >= before + 5_000);
     }
@@ -173,7 +180,7 @@ mod tests {
             kind: PawnKind::Caravan,
             owner_wealth: Wealth::of(0),
         }];
-        let choice = choose_conversion(&outlook, &mut rand::rng());
+        let choice = choose_conversion(&outlook, &mut rand::rng(), &mut DecisionTrace::default());
         assert_eq!(choice, Some(Conversion::Flip { site: SiteId(28) }));
     }
 
@@ -181,7 +188,9 @@ mod tests {
     fn conversions_are_legal() {
         let outlook = outlook();
         for _ in 0..10 {
-            let choice = choose_conversion(&outlook, &mut rand::rng()).unwrap();
+            let choice =
+                choose_conversion(&outlook, &mut rand::rng(), &mut DecisionTrace::default())
+                    .unwrap();
             assert!(outlook.board.validate(&choice, outlook.turn).is_ok());
         }
     }

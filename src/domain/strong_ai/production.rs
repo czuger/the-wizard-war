@@ -6,7 +6,7 @@ use crate::domain::strong_ai::fanatic_odds::FanaticOdds;
 use crate::domain::strong_ai::item_values::ItemValues;
 use crate::domain::strong_ai::near_best::pick_near_best;
 use crate::domain::strong_ai::outlook::AiOutlook;
-use crate::domain::{Cult, FanaticVerdict, ItemCounts, MagicItem};
+use crate::domain::{Cult, DecisionTrace, FanaticVerdict, ItemCounts, MagicItem};
 
 /// Chooses the `count` items to take from the supply.
 ///
@@ -18,15 +18,27 @@ use crate::domain::{Cult, FanaticVerdict, ItemCounts, MagicItem};
 /// # Returns
 /// One of the best splits; it always fits the supply and holds `count` items when the
 /// supply has that many.
-pub fn choose_production<R: Rng>(outlook: &AiOutlook, count: i64, rng: &mut R) -> ItemCounts {
+pub fn choose_production<R: Rng>(
+    outlook: &AiOutlook,
+    count: i64,
+    rng: &mut R,
+    trace: &mut DecisionTrace,
+) -> ItemCounts {
     let values = outlook.item_values();
     let known: Vec<_> = outlook.own_in_hall.into_iter().collect();
     let odds = FanaticOdds::compute(&known, &outlook.unseen, outlook.others_in_hall);
     let count = count.clamp(0, outlook.supply.total());
-    let scored = splits(count, &outlook.supply)
+    let scored: Vec<(ItemCounts, f64)> = splits(count, &outlook.supply)
         .into_iter()
         .map(|split| (split, score(outlook, &values, &odds, split)))
         .collect();
+    trace.note(format!(
+        "item values: {values:?}; dominant odds: Xephis {:.3}, Yaboul {:.3}, none {:.3}",
+        odds.of(Some(Cult::Xephis)),
+        odds.of(Some(Cult::Yaboul)),
+        odds.of(None)
+    ));
+    trace.scores("splits (toratsa, xephis, yaboul)", &scored);
     let tolerance = outlook.temperament.tolerance as f64;
     pick_near_best(scored, tolerance, rng).unwrap_or_default()
 }
@@ -110,7 +122,7 @@ mod tests {
         outlook.pawns = vec![pawn(1, PawnKind::Caravan, Location::City, None)];
         outlook.own_in_hall = Some(Fanatic::new(Cult::Yaboul, 3));
         assert_eq!(
-            choose_production(&outlook, 2, &mut rand::rng()),
+            choose_production(&outlook, 2, &mut rand::rng(), &mut DecisionTrace::default()),
             ItemCounts::new(0, 0, 2)
         );
     }
@@ -123,7 +135,7 @@ mod tests {
         outlook.stock = ItemCounts::new(0, 0, 3);
         outlook.unseen = vec![Fanatic::new(Cult::Xephis, 3); 3];
         outlook.others_in_hall = 1;
-        let made = choose_production(&outlook, 2, &mut rand::rng());
+        let made = choose_production(&outlook, 2, &mut rand::rng(), &mut DecisionTrace::default());
         assert_eq!(made.yaboul, 0, "Xéphis will raid Yaboul makers: {made:?}");
     }
 
@@ -131,8 +143,14 @@ mod tests {
     fn production_fits_the_supply() {
         let mut outlook = outlook();
         outlook.supply = ItemCounts::new(1, 0, 1);
-        assert_eq!(choose_production(&outlook, 5, &mut rand::rng()).total(), 2);
-        assert!(choose_production(&outlook, 5, &mut rand::rng()).fits_within(&outlook.supply));
+        assert_eq!(
+            choose_production(&outlook, 5, &mut rand::rng(), &mut DecisionTrace::default()).total(),
+            2
+        );
+        assert!(
+            choose_production(&outlook, 5, &mut rand::rng(), &mut DecisionTrace::default())
+                .fits_within(&outlook.supply)
+        );
         assert_eq!(splits(2, &ItemCounts::new(5, 5, 5)).len(), 6);
     }
 
@@ -148,7 +166,7 @@ mod tests {
                 tolerance: 0,
                 ..AiTemperament::new(archetype, 0)
             };
-            choose_production(&outlook, 2, &mut rand::rng())
+            choose_production(&outlook, 2, &mut rand::rng(), &mut DecisionTrace::default())
         };
         assert_eq!(made_by(Archetype::Merchant), ItemCounts::new(2, 0, 0));
         assert!(made_by(Archetype::YaboulZealot).yaboul > 0);

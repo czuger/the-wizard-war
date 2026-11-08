@@ -8,7 +8,7 @@ use crate::domain::strong_ai::{
     choose_expense, choose_fight_target, choose_pawn_moves, choose_production, choose_purchase,
     choose_rebel_moves,
 };
-use crate::domain::{Conversion, ItemCounts, PawnOrder, Wealth};
+use crate::domain::{Conversion, DecisionTrace, ItemCounts, PawnOrder, Wealth};
 use crate::error::AppError;
 use crate::service::ai_outlook::load_outlook;
 use crate::service::announce_fanatic::record_announcement;
@@ -31,28 +31,34 @@ pub(crate) async fn play_strong(
     conn: &mut SqliteConnection,
     game: &mut GameRecord,
     player: &mut PlayerRecord,
+    trace: &mut DecisionTrace,
 ) -> Result<(), AppError> {
     let outlook = load_outlook(conn, game, player).await?;
+    note_outlook(&outlook, trace);
     match game.phase {
-        Phase::Announcements => announce(conn, game, player, outlook).await,
+        Phase::Announcements => announce(conn, game, player, outlook, trace).await,
         Phase::Expenses => {
             let amount = choose_expense(&outlook);
+            trace.note(format!("decision: pay {amount}"));
             record_expense(conn, game, player, amount).await
         }
         Phase::Conversions => {
-            let conversion = pick_conversion(&outlook);
+            let conversion = pick_conversion(&outlook, trace);
+            trace.note(format!("decision: {conversion:?}"));
             record_conversion(conn, game, player, conversion).await
         }
-        Phase::RebelMovement => move_rebels(conn, game, player, &outlook).await,
-        Phase::RebelFights => attack(conn, game, player).await,
+        Phase::RebelMovement => move_rebels(conn, game, player, &outlook, trace).await,
+        Phase::RebelFights => attack(conn, game, player, trace).await,
         Phase::Production => {
             let count = required_items(player.laboratories, &game.supply);
-            let items = pick_production(&outlook, count);
+            let items = pick_production(&outlook, count, trace);
+            trace.note(format!("decision: make {items:?}"));
             record_production(conn, game, player, items).await
         }
-        Phase::Peddlers => move_pawns(conn, game, player, &outlook).await,
+        Phase::Peddlers => move_pawns(conn, game, player, &outlook, trace).await,
         Phase::CitySales => {
-            let item = choose_city_sale(&outlook);
+            let item = choose_city_sale(&outlook, trace);
+            trace.note(format!("decision: sell {item:?}"));
             record_city_sale(conn, game, player, item).await
         }
         Phase::Purchases => {
@@ -60,6 +66,7 @@ pub(crate) async fn play_strong(
             let pawns = PawnRecord::list_for_game(conn, game.id).await?;
             let holdings = holdings_of(game, player, &players, &pawns);
             let purchase = choose_purchase(&outlook, &holdings);
+            trace.note(format!("{holdings:?}; decision: {purchase:?}"));
             record_purchase(conn, game, player, purchase).await
         }
         Phase::Finished => Ok(()),
@@ -67,23 +74,27 @@ pub(crate) async fn play_strong(
 }
 
 /// Kept synchronous: the thread-local RNG must not live across an `.await`.
-fn pick_conversion(outlook: &AiOutlook) -> Option<Conversion> {
-    choose_conversion(outlook, &mut rand::rng())
+fn pick_conversion(outlook: &AiOutlook, trace: &mut DecisionTrace) -> Option<Conversion> {
+    choose_conversion(outlook, &mut rand::rng(), trace)
 }
 
 /// Kept synchronous: the thread-local RNG must not live across an `.await`.
-fn pick_production(outlook: &AiOutlook, count: i64) -> ItemCounts {
-    choose_production(outlook, count, &mut rand::rng())
+fn pick_production(outlook: &AiOutlook, count: i64, trace: &mut DecisionTrace) -> ItemCounts {
+    choose_production(outlook, count, &mut rand::rng(), trace)
 }
 
 /// Kept synchronous: the thread-local RNG must not live across an `.await`.
-fn pick_announcement(outlook: &AiOutlook) -> Option<usize> {
-    choose_announcement(outlook, &mut rand::rng())
+fn pick_announcement(outlook: &AiOutlook, trace: &mut DecisionTrace) -> Option<usize> {
+    choose_announcement(outlook, &mut rand::rng(), trace)
 }
 
 /// Kept synchronous: the thread-local RNG must not live across an `.await`.
-fn pick_pawn_moves(outlook: &AiOutlook, movable: &[MovablePawn]) -> Vec<PawnOrder> {
-    choose_pawn_moves(outlook, movable, &mut rand::rng())
+fn pick_pawn_moves(
+    outlook: &AiOutlook,
+    movable: &[MovablePawn],
+    trace: &mut DecisionTrace,
+) -> Vec<PawnOrder> {
+    choose_pawn_moves(outlook, movable, &mut rand::rng(), trace)
 }
 
 /// Sends the fanatic [`choose_announcement`] picks, if any.
@@ -92,6 +103,7 @@ async fn announce(
     game: &mut GameRecord,
     player: &mut PlayerRecord,
     mut outlook: AiOutlook,
+    trace: &mut DecisionTrace,
 ) -> Result<(), AppError> {
     let available: Vec<FanaticRecord> = FanaticRecord::list_for_player(conn, player.id)
         .await?
@@ -99,9 +111,10 @@ async fn announce(
         .filter(|record| !record.in_hall)
         .collect();
     outlook.hand = available.iter().map(|record| record.fanatic).collect();
-    let fanatic_id = pick_announcement(&outlook)
+    let fanatic_id = pick_announcement(&outlook, trace)
         .and_then(|index| available.get(index))
         .map(|record| record.id);
+    trace.note(format!("decision: send fanatic #{fanatic_id:?}"));
     record_announcement(conn, game, player, fanatic_id).await
 }
 
@@ -111,6 +124,7 @@ async fn move_rebels(
     game: &mut GameRecord,
     player: &PlayerRecord,
     outlook: &AiOutlook,
+    trace: &mut DecisionTrace,
 ) -> Result<(), AppError> {
     let rebels: Vec<Rebel> = RebelRecord::list_for_game(conn, game.id)
         .await?
@@ -121,6 +135,7 @@ async fn move_rebels(
         })
         .collect();
     let moves = pick_rebel_moves(outlook, &rebels);
+    trace.note(format!("rebels {rebels:?}; decision: {moves:?}"));
     record_rebel_moves(conn, game, player, &moves).await
 }
 
@@ -137,6 +152,7 @@ async fn attack(
     conn: &mut SqliteConnection,
     game: &mut GameRecord,
     player: &PlayerRecord,
+    trace: &mut DecisionTrace,
 ) -> Result<(), AppError> {
     let players = PlayerRecord::list_for_game(conn, game.id).await?;
     let targets = pending_fight(conn, game.id)
@@ -155,6 +171,9 @@ async fn attack(
         })
         .collect();
     let target = choose_fight_target(&candidates).ok_or(AppError::WrongPhase)?;
+    trace.note(format!(
+        "candidates {candidates:?}; decision: attack pawn #{target}"
+    ));
     record_rebel_attack(conn, game, player, target).await
 }
 
@@ -164,6 +183,7 @@ async fn move_pawns(
     game: &mut GameRecord,
     player: &mut PlayerRecord,
     outlook: &AiOutlook,
+    trace: &mut DecisionTrace,
 ) -> Result<(), AppError> {
     let movable: Vec<MovablePawn> = PawnRecord::list_for_game(conn, game.id)
         .await?
@@ -176,6 +196,32 @@ async fn move_pawns(
             item: pawn.item,
         })
         .collect();
-    let orders = pick_pawn_moves(outlook, &movable);
+    let orders = pick_pawn_moves(outlook, &movable, trace);
+    trace.note(format!("decision: {orders:?}"));
     record_pawn_moves(conn, game, player, &orders).await
+}
+
+/// Notes what the AI believes before deciding: what its items are worth, and what it knows
+/// of the fanatics and of its rivals.
+fn note_outlook(outlook: &AiOutlook, trace: &mut DecisionTrace) {
+    trace.note(format!(
+        "outlook: turn {}/{}, {} sale turn(s) left, supply {:?}, {} laboratories in play",
+        outlook.turn,
+        outlook.max_turns,
+        outlook.sale_turns,
+        outlook.supply,
+        outlook.total_laboratories
+    ));
+    trace.note(format!("item values: {:?}", outlook.item_values()));
+    trace.note(format!(
+        "fanatics: {} unseen, {} rival(s) holding some, {} rival(s) in hall, own in hall {:?}",
+        outlook.unseen.len(),
+        outlook.rivals_with_fanatics,
+        outlook.others_in_hall,
+        outlook.own_in_hall
+    ));
+    trace.note(format!(
+        "rival pawns {:?}; sites sold this turn {:?}",
+        outlook.rivals, outlook.sold_sites
+    ));
 }

@@ -5,7 +5,7 @@ use rand::Rng;
 use crate::domain::strong_ai::fanatic_odds::FanaticOdds;
 use crate::domain::strong_ai::near_best::pick_near_best;
 use crate::domain::strong_ai::outlook::AiOutlook;
-use crate::domain::{Cult, Fanatic, MagicItem};
+use crate::domain::{Cult, DecisionTrace, Fanatic, MagicItem};
 
 /// Worth given to a cult item nobody buys on the map yet, in écus.
 const UNSOLD_ITEM_WORTH: i64 = 2_000;
@@ -23,7 +23,11 @@ const HOME_CULT_BONUS: i64 = 1_000;
 ///
 /// # Returns
 /// The index in `outlook.hand` of the pawn to send, or `None` to send nothing.
-pub fn choose_announcement<R: Rng>(outlook: &AiOutlook, rng: &mut R) -> Option<usize> {
+pub fn choose_announcement<R: Rng>(
+    outlook: &AiOutlook,
+    rng: &mut R,
+    trace: &mut DecisionTrace,
+) -> Option<usize> {
     let values = outlook.item_values();
     let senders = outlook.rivals_with_fanatics.div_ceil(2);
     let temperament = &outlook.temperament;
@@ -42,11 +46,18 @@ pub fn choose_announcement<R: Rng>(outlook: &AiOutlook, rng: &mut R) -> Option<u
                 .unwrap_or(0)
                 .max(UNSOLD_ITEM_WORTH)
                 + home;
+            trace.note(format!(
+                "{cult:?}: strongest {fanatic:?}, odds {odds:.3}, item worth {worth}"
+            ));
             Some(((index, odds), odds * worth as f64))
         })
         .collect();
     let (index, odds) = pick_near_best(scored, temperament.tolerance as f64, rng)?;
     let use_or_lose = outlook.hand.len() as i64 > outlook.turns_after();
+    trace.note(format!(
+        "picked hand[{index}] at odds {odds:.3} (threshold {:.3}, use or lose: {use_or_lose})",
+        temperament.send_odds
+    ));
     (odds >= temperament.send_odds || use_or_lose).then_some(index)
 }
 
@@ -70,7 +81,10 @@ mod tests {
         outlook.hand = vec![Fanatic::new(Cult::Yaboul, 1), Fanatic::new(Cult::Xephis, 3)];
         outlook.unseen = vec![Fanatic::new(Cult::Xephis, 1)];
         outlook.rivals_with_fanatics = 1;
-        assert_eq!(choose_announcement(&outlook, &mut rand::rng()), Some(1));
+        assert_eq!(
+            choose_announcement(&outlook, &mut rand::rng(), &mut DecisionTrace::default()),
+            Some(1)
+        );
     }
 
     #[test]
@@ -79,10 +93,19 @@ mod tests {
         outlook.hand = vec![Fanatic::new(Cult::Yaboul, 1)];
         outlook.unseen = vec![Fanatic::new(Cult::Xephis, 3); 4];
         outlook.rivals_with_fanatics = 4;
-        assert_eq!(choose_announcement(&outlook, &mut rand::rng()), None);
+        assert_eq!(
+            choose_announcement(&outlook, &mut rand::rng(), &mut DecisionTrace::default()),
+            None
+        );
         outlook.turn = outlook.max_turns;
-        assert_eq!(choose_announcement(&outlook, &mut rand::rng()), Some(0));
+        assert_eq!(
+            choose_announcement(&outlook, &mut rand::rng(), &mut DecisionTrace::default()),
+            Some(0)
+        );
         outlook.hand.clear();
-        assert_eq!(choose_announcement(&outlook, &mut rand::rng()), None);
+        assert_eq!(
+            choose_announcement(&outlook, &mut rand::rng(), &mut DecisionTrace::default()),
+            None
+        );
     }
 }
