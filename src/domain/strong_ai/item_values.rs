@@ -116,8 +116,9 @@ impl ItemValues {
     }
 }
 
-/// The city price, discounted by the chance the city buys.
-fn city_value(item: MagicItem) -> i64 {
+/// The city price, discounted by the chance the city buys: what an item left in the stock
+/// is worth at least.
+pub(crate) fn city_value(item: MagicItem) -> i64 {
     (city_price(item) as f64 * CITY_SALE_ODDS) as i64
 }
 
@@ -185,7 +186,7 @@ mod tests {
     #[test]
     fn items_with_a_trip_are_worth_their_map_price() {
         let values = values(&board(&[(27, Cult::Yaboul)]), 4);
-        let village = 4_700;
+        let village = 4_000;
         assert_eq!(values.map_value(MagicItem::Yaboul), Some(village - 1_500));
         assert_eq!(values.map_value(MagicItem::Xephis), None);
         assert_eq!(values.trips(), 1);

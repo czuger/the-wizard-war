@@ -6,6 +6,7 @@ use crate::domain::ai_trading::MovablePawn;
 use crate::domain::board::{neighbours, site_by_id};
 use crate::domain::market::buys_without_limit;
 use crate::domain::strong_ai::buyer::{Buyer, buyers};
+use crate::domain::strong_ai::item_values::city_value;
 use crate::domain::strong_ai::near_best::pick_near_best;
 use crate::domain::strong_ai::outlook::AiOutlook;
 use crate::domain::travel::{destinations, distance};
@@ -15,11 +16,12 @@ use crate::domain::{DecisionTrace, ItemCounts, Location, MagicItem, PawnKind, Pa
 ///
 /// Loaded pawns on the map go first, then the pawns in the city (caravans first), then the
 /// empty ones, which go home. Each loaded pawn heads for the buyer worth most to the AI
-/// (see [`Buyer::worth`]), among those it reaches before the end; a buyer that takes one
-/// item a turn is kept for a single pawn of the AI. A pawn in the city leaves with a stock
-/// item and a buyer among those worth almost the most, and stays home when nothing can be
-/// sold in time. Every pawn stops where it gets closest to its target without ending on rebels, away from
-/// rebels when it can.
+/// (see [`Buyer::worth`]), among those it reaches before the end, and waits where it stands
+/// when there is none; a buyer that takes one item a turn is kept for a single pawn of the
+/// AI. A pawn in the city leaves with a stock item and a buyer among those worth almost the
+/// most, and stays home when no buyer is expected to pay more than the city. Every pawn
+/// stops where it gets closest to its target without ending on rebels, away from rebels
+/// when it can.
 ///
 /// # Returns
 /// One order per pawn that moves; the others stay where they are.
@@ -61,12 +63,11 @@ impl<R: Rng> Planner<'_, R> {
     fn plan(&mut self, pawn: &MovablePawn) -> Option<PawnOrder> {
         match (pawn.location, pawn.item) {
             (Location::Site(_), Some(item)) => {
-                // Already on the way: no second thoughts that would walk past a better sale.
                 let scored = self.scored_buyers(item, pawn);
                 self.trace.scores(&format!("{pawn:?}: buyers"), &scored);
-                let Some(buyer) = pick_near_best(scored, 0.0, self.rng) else {
-                    return self.order(pawn, Location::City, None);
-                };
+                // Markers change every turn: rather than carry its item home, a pawn with no
+                // buyer waits on the map for one to appear.
+                let buyer = pick_near_best(scored, 0.0, self.rng)?;
                 self.reserve(buyer.site);
                 if buyer.turns == 0 {
                     return None;
@@ -74,11 +75,14 @@ impl<R: Rng> Planner<'_, R> {
                 self.order(pawn, Location::Site(buyer.site), None)
             }
             (Location::City, _) => {
+                // A pawn left at home earns nothing: it goes wherever the item fetches more
+                // than in the city, even if the trip itself is long.
+                let rivals = &self.outlook.rivals;
                 let scored: Vec<(Buyer, f64)> = MagicItem::ALL
                     .into_iter()
                     .filter(|&item| self.stock.get(item) > 0)
                     .flat_map(|item| self.scored_buyers(item, pawn))
-                    .filter(|(_, worth)| *worth > 0.0)
+                    .filter(|(buyer, _)| buyer.expected_price(rivals) > city_value(buyer.item))
                     .collect();
                 self.trace.scores(
                     &format!("{pawn:?}: buyers of the stock {:?}", self.stock),
@@ -253,6 +257,39 @@ mod tests {
             )
             .is_empty()
         );
+    }
+
+    #[test]
+    fn loaded_pawns_wait_on_the_map_for_a_buyer() {
+        let mut outlook = outlook();
+        outlook.board = board(&[(27, Cult::Xephis)], &[]);
+        let waiting = pawn(1, PawnKind::Peddler, AT_27, Some(MagicItem::Yaboul));
+        assert!(
+            choose_pawn_moves(
+                &outlook,
+                &[waiting],
+                &mut rand::rng(),
+                &mut DecisionTrace::default()
+            )
+            .is_empty()
+        );
+    }
+
+    #[test]
+    fn leaves_the_city_when_the_buyer_pays_more_than_the_city() {
+        let mut outlook = outlook();
+        outlook.board = board(&[(27, Cult::Yaboul)], &[]);
+        outlook.stock = ItemCounts::new(0, 0, 1);
+        outlook.temperament.turn_cost = 20_000;
+        let leaving = pawn(1, PawnKind::Peddler, Location::City, None);
+        let orders = choose_pawn_moves(
+            &outlook,
+            &[leaving],
+            &mut rand::rng(),
+            &mut DecisionTrace::default(),
+        );
+        assert_eq!(orders.len(), 1, "the trip's cost does not keep it home");
+        assert_eq!(orders[0].item, Some(MagicItem::Yaboul));
     }
 
     #[test]

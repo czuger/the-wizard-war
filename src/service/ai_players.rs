@@ -44,7 +44,7 @@ pub async fn play_ai_players(
         if game.phase == Phase::Peddlers && player.moves_done {
             sell(conn, game, &mut player, &mut trace).await?;
         } else {
-            match game.ai_level {
+            match player.ai_level.unwrap_or(game.ai_level) {
                 AiLevel::Beginner => play_beginner(conn, game, &mut player, &mut trace).await?,
                 AiLevel::Strong => play_strong(conn, game, &mut player, &mut trace).await?,
             }

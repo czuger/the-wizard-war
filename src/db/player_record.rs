@@ -1,13 +1,13 @@
 use sqlx::{FromRow, SqliteConnection};
 
 use crate::domain::rules::{STARTING_LABORATORIES, STARTING_MONEY};
-use crate::domain::{AiTemperament, Archetype, District, ItemCounts};
+use crate::domain::{AiLevel, AiTemperament, Archetype, District, ItemCounts};
 use crate::error::AppError;
 
 const PLAYER_COLUMNS: &str = "id, game_id, seat, name, token, money, laboratories,
     toratsa_in_production, xephis_in_production, yaboul_in_production,
     toratsa_in_stock, xephis_in_stock, yaboul_in_stock, turn_expense, announcement_done, expense_done, is_ai,
-    district, moves_done, temperament, temperament_seed";
+    district, moves_done, temperament, temperament_seed, ai_level";
 
 #[derive(FromRow)]
 struct PlayerRow {
@@ -32,6 +32,7 @@ struct PlayerRow {
     moves_done: bool,
     temperament: String,
     temperament_seed: i64,
+    ai_level: Option<String>,
 }
 
 /// An alchemist as stored in the `players` table.
@@ -71,6 +72,8 @@ pub struct PlayerRecord {
     pub archetype: Archetype,
     /// Seed varying the weights of the playing style.
     pub temperament_seed: i64,
+    /// Level of this computer-controlled alchemist, when it differs from the game's.
+    pub ai_level: Option<AiLevel>,
 }
 
 /// What a new row of the `players` table is made of.
@@ -92,6 +95,8 @@ pub struct NewPlayer<'a> {
     pub archetype: Archetype,
     /// Seed varying the weights of the playing style.
     pub temperament_seed: i64,
+    /// Level of this computer-controlled alchemist, `None` for the game's.
+    pub ai_level: Option<AiLevel>,
 }
 
 impl TryFrom<PlayerRow> for PlayerRecord {
@@ -107,6 +112,13 @@ impl TryFrom<PlayerRow> for PlayerRecord {
                 column: "players.temperament",
                 value: row.temperament.clone(),
             })?;
+        let ai_level = match &row.ai_level {
+            None => None,
+            Some(key) => Some(AiLevel::from_key(key).ok_or_else(|| AppError::CorruptData {
+                column: "players.ai_level",
+                value: key.clone(),
+            })?),
+        };
         Ok(PlayerRecord {
             id: row.id,
             game_id: row.game_id,
@@ -133,6 +145,7 @@ impl TryFrom<PlayerRow> for PlayerRecord {
             moves_done: row.moves_done,
             archetype,
             temperament_seed: row.temperament_seed,
+            ai_level,
         })
     }
 }
@@ -153,8 +166,8 @@ impl PlayerRecord {
     ) -> Result<i64, AppError> {
         let result = sqlx::query(
             "INSERT INTO players (game_id, seat, name, token, money, laboratories, is_ai, district,
-                                  temperament, temperament_seed)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                                  temperament, temperament_seed, ai_level)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         )
         .bind(player.game_id)
         .bind(player.seat)
@@ -166,6 +179,7 @@ impl PlayerRecord {
         .bind(player.district.key())
         .bind(player.archetype.key())
         .bind(player.temperament_seed)
+        .bind(player.ai_level.map(AiLevel::key))
         .execute(conn)
         .await?;
         Ok(result.last_insert_rowid())

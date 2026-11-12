@@ -40,7 +40,7 @@ impl DecisionContext {
             "{} (seat {}, {:?} AI, {:?})\n{}",
             player.name,
             player.seat,
-            game.ai_level,
+            player.ai_level.unwrap_or(game.ai_level),
             player.temperament(),
             self.snapshot
         );

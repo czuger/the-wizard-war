@@ -108,7 +108,7 @@ mod tests {
     };
 
     fn selling_board() -> BoardState {
-        let markers = [(3, Cult::Yaboul), (2, Cult::Xephis), (27, Cult::Yaboul)]
+        let markers = [(5, Cult::Yaboul), (2, Cult::Xephis), (27, Cult::Yaboul)]
             .into_iter()
             .map(|(site, cult)| (SiteId(site), CultMarker::face_up(cult)))
             .collect::<BTreeMap<_, _>>();

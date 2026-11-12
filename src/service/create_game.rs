@@ -50,6 +50,25 @@ struct Setup {
     temperaments: Vec<(Archetype, i64)>,
 }
 
+/// Who plays each seat of a new game.
+#[derive(Debug, Clone, Copy)]
+enum Seating<'a> {
+    /// The human at seat 0, the computer at the others, at the game's level.
+    HumanFirst,
+    /// The computer at every seat, each at its own level.
+    AllAi(&'a [AiLevel]),
+}
+
+impl Seating<'_> {
+    /// Whether the computer plays `seat`, and at which level when not the game's.
+    fn controller(self, seat: i64) -> (bool, Option<AiLevel>) {
+        match self {
+            Seating::HumanFirst => (seat != HUMAN_SEAT, None),
+            Seating::AllAi(levels) => (true, levels.get(seat as usize).copied()),
+        }
+    }
+}
+
 /// Sets up a new game for one human player against the computer-controlled alchemists:
 /// money, laboratories, fanatics and the item supply. The AIs then make their first
 /// announcements.
@@ -60,6 +79,53 @@ pub async fn create_game(
     pool: &SqlitePool,
     settings: &GameSettings<'_>,
 ) -> Result<CreatedGame, AppError> {
+    let (game_id, tokens) = start_game(pool, settings, Seating::HumanFirst).await?;
+    let human_token = tokens
+        .get(HUMAN_SEAT as usize)
+        .cloned()
+        .ok_or(AppError::InvalidPlayerCount)?;
+    Ok(CreatedGame {
+        game_id,
+        human_token,
+    })
+}
+
+/// Plays a whole game between computer-controlled alchemists, one per entry of `levels`,
+/// to compare the levels. Each seat draws a different playing style.
+///
+/// # Returns
+/// The id of the finished game.
+///
+/// # Errors
+/// Fails on an invalid number of turns or of players, or on a database error.
+pub async fn play_ai_match(
+    pool: &SqlitePool,
+    max_turns: i64,
+    levels: &[AiLevel],
+) -> Result<i64, AppError> {
+    let settings = GameSettings {
+        human_name: MATCH_FIRST_NAME,
+        max_turns,
+        district: District::ALL[0],
+        ai_level: AiLevel::default(),
+        player_count: levels.len(),
+    };
+    let (game_id, _) = start_game(pool, &settings, Seating::AllAi(levels)).await?;
+    Ok(game_id)
+}
+
+/// Name of seat 0 in a game between computer-controlled alchemists.
+const MATCH_FIRST_NAME: &str = "Ambroise";
+
+/// Inserts the game and its players, then lets the computer play until a human has to act.
+///
+/// # Returns
+/// The game id and the players' tokens, in seat order.
+async fn start_game(
+    pool: &SqlitePool,
+    settings: &GameSettings<'_>,
+    seating: Seating<'_>,
+) -> Result<(i64, Vec<String>), AppError> {
     let GameSettings {
         max_turns,
         ai_level,
@@ -74,12 +140,7 @@ pub async fn create_game(
     if !(1..=MAX_TURNS).contains(&max_turns) {
         return Err(AppError::InvalidTurnCount);
     }
-    let setup = draw_setup(player_count)?;
-    let human_token = setup
-        .tokens
-        .get(HUMAN_SEAT as usize)
-        .cloned()
-        .ok_or(AppError::InvalidPlayerCount)?;
+    let setup = draw_setup(player_count, seating)?;
 
     let mut tx = begin_write(pool).await?;
     let game_id = GameRecord::insert(
@@ -96,6 +157,7 @@ pub async fn create_game(
         districts: &districts,
         tokens: &setup.tokens,
         temperaments: &setup.temperaments,
+        seating,
     };
     insert_players(&mut tx, game_id, &seats, setup.fanatics.hands).await?;
     for fanatic in setup.fanatics.spare {
@@ -112,10 +174,7 @@ pub async fn create_game(
     EventRecord::insert(&mut tx, game_id, 1, LogSection::Turn, &message).await?;
     let game = GameRecord::find(&mut tx, game_id).await?;
     PlayerAction::finish(tx, game).await?;
-    Ok(CreatedGame {
-        game_id,
-        human_token,
-    })
+    Ok((game_id, setup.tokens))
 }
 
 /// Returns the names in seat order: the human player, then the AIs.
@@ -147,7 +206,7 @@ fn seat_districts(human: District, player_count: usize) -> Vec<District> {
     districts
 }
 
-fn draw_setup(player_count: usize) -> Result<Setup, AppError> {
+fn draw_setup(player_count: usize, seating: Seating<'_>) -> Result<Setup, AppError> {
     let mut rng = rand::rng();
     let fanatics = FanaticPool::full()
         .deal(player_count, &mut rng)
@@ -162,12 +221,27 @@ fn draw_setup(player_count: usize) -> Result<Setup, AppError> {
         })
         .collect();
     let first_seat = rng.random_range(0..player_count as i64);
-    let mut archetypes = Archetype::DRAWN;
-    archetypes.shuffle(&mut rng);
-    let mut temperaments = vec![(Archetype::Balanced, 0)];
-    for &archetype in archetypes.iter().take(player_count - 1) {
-        temperaments.push((archetype, rng.random::<i64>()));
-    }
+    let temperaments = match seating {
+        Seating::HumanFirst => {
+            let mut archetypes = Archetype::DRAWN;
+            archetypes.shuffle(&mut rng);
+            let drawn = archetypes.into_iter().take(player_count - 1);
+            std::iter::once((Archetype::Balanced, 0))
+                .chain(drawn.map(|archetype| (archetype, rng.random::<i64>())))
+                .collect()
+        }
+        Seating::AllAi(_) => {
+            let mut archetypes: Vec<Archetype> = std::iter::once(Archetype::Balanced)
+                .chain(Archetype::DRAWN)
+                .collect();
+            archetypes.shuffle(&mut rng);
+            archetypes.truncate(player_count);
+            archetypes
+                .into_iter()
+                .map(|archetype| (archetype, rng.random::<i64>()))
+                .collect()
+        }
+    };
     Ok(Setup {
         first_seat,
         fanatics,
@@ -183,6 +257,8 @@ struct SeatSetup<'a> {
     tokens: &'a [String],
     /// Hidden playing style and its seed; the human player's is balanced.
     temperaments: &'a [(Archetype, i64)],
+    /// Who plays each seat.
+    seating: Seating<'a>,
 }
 
 async fn insert_players(
@@ -200,12 +276,14 @@ async fn insert_players(
     for (seat, ((((name, district), token), temperament), hand)) in seat_data.zip(hands).enumerate()
     {
         let seat = seat as i64;
+        let (is_ai, ai_level) = seats.seating.controller(seat);
         let player = NewPlayer {
             game_id,
             seat,
             name,
             token,
-            is_ai: seat != HUMAN_SEAT,
+            is_ai,
+            ai_level,
             district: *district,
             archetype: temperament.0,
             temperament_seed: temperament.1,

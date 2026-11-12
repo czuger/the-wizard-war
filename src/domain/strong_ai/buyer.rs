@@ -8,7 +8,7 @@ use crate::domain::{AiTemperament, BoardState, Location, MagicItem, PawnKind, Si
 
 /// Chance, per turn of travel, that a village changes or hides its cult before the pawn
 /// arrives. Castles and monasteries never change.
-pub const FLIP_RISK_PER_TURN: f64 = 0.06;
+pub const FLIP_RISK_PER_TURN: f64 = 0.2;
 
 /// Share of a buyer each rival pawn able to get there first is counted as taking: its load
 /// is hidden, so it may carry something else.
@@ -36,19 +36,24 @@ impl Buyer {
     /// stops buying and by the rival pawns that may sell there first, minus the trip, plus
     /// the AI's liking for the item.
     pub fn worth(&self, temperament: &AiTemperament, rivals: &[RivalPawn]) -> i64 {
+        let bonus = if temperament.favourite == Some(self.item) {
+            temperament.favourite_bonus
+        } else {
+            0
+        };
+        self.expected_price(rivals) - temperament.turn_cost * self.turns + bonus
+    }
+
+    /// The price, discounted by the risk that the site stops buying before the pawn arrives
+    /// and by the rival pawns that may sell there first.
+    pub fn expected_price(&self, rivals: &[RivalPawn]) -> i64 {
         let survival = if self.permanent {
             1.0
         } else {
             (1.0 - FLIP_RISK_PER_TURN).powi(self.turns as i32)
         };
         let share = 1.0 / (1.0 + CONTEST_WEIGHT * self.contenders(rivals) as f64);
-        let bonus = if temperament.favourite == Some(self.item) {
-            temperament.favourite_bonus
-        } else {
-            0
-        };
-        (self.price as f64 * survival * share).round() as i64 - temperament.turn_cost * self.turns
-            + bonus
+        (self.price as f64 * survival * share).round() as i64
     }
 
     /// Rival pawns on the map that reach this one-item-a-turn site no later than the pawn.
